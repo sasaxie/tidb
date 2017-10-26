@@ -1,8 +1,8 @@
 package expr
 
 import (
-	"strconv"
 	"github.com/pingcap/tidb/xprotocol/util"
+	"strconv"
 )
 
 type queryBuilder struct {

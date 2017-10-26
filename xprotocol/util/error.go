@@ -38,6 +38,7 @@ var (
 	ErrNotSupportedAuthMode       = ErrorMessage(mysql.ErrNotSupportedAuthMode, mysql.MySQLErrName[mysql.ErrNotSupportedAuthMode])
 )
 
+// Error Codes
 const (
 	codeErrXBadMessage                terror.ErrCode = terror.ErrCode(mysql.ErrXBadMessage)
 	codeErrXAccessDenied                             = terror.ErrCode(mysql.ErrAccessDenied)
@@ -48,9 +49,9 @@ const (
 	codeErrJSONUsedAsKey                             = terror.ErrCode(mysql.ErrJSONUsedAsKey)
 	codeErrXBadNotice                                = terror.ErrCode(mysql.ErrXBadNotice)
 	codeErrXCapabilitiesPrepareFailed                = terror.ErrCode(mysql.ErrXCapabilitiesPrepareFailed)
-	codeErrXBadProjection                            = terror.ErrCode(mysql.ErrXBadProjection)
-	codeErrXBadInsertData                            = terror.ErrCode(mysql.ErrXBadInsertData)
-	codeErrXExprMissingArg                           = terror.ErrCode(mysql.ErrXExprMissingArg)
+	CodeErrXBadProjection                            = terror.ErrCode(mysql.ErrXBadProjection)
+	CodeErrXBadInsertData                            = terror.ErrCode(mysql.ErrXBadInsertData)
+	CodeErrXExprMissingArg                           = terror.ErrCode(mysql.ErrXExprMissingArg)
 	codeErrXInvalidNamespace                         = terror.ErrCode(mysql.ErrXInvalidNamespace)
 	codeErrXInvalidAdminCommand                      = terror.ErrCode(mysql.ErrXInvalidAdminCommand)
 	codeErrXCmdNumArguments                          = terror.ErrCode(mysql.ErrXCmdNumArguments)
@@ -72,9 +73,9 @@ func init() {
 		codeErrXInvalidCollection:         mysql.ErrXInvalidCollection,
 		codeErrJSONUsedAsKey:              mysql.ErrJSONUsedAsKey,
 		codeErrXBadNotice:                 mysql.ErrXBadNotice,
-		codeErrXBadProjection:             mysql.ErrXBadProjection,
-		codeErrXBadInsertData:             mysql.ErrXBadInsertData,
-		codeErrXExprMissingArg:            mysql.ErrXExprMissingArg,
+		CodeErrXBadProjection:             mysql.ErrXBadProjection,
+		CodeErrXBadInsertData:             mysql.ErrXBadInsertData,
+		CodeErrXExprMissingArg:            mysql.ErrXExprMissingArg,
 		codeErrXInvalidNamespace:          mysql.ErrXInvalidNamespace,
 		codeErrXInvalidAdminCommand:       mysql.ErrXInvalidAdminCommand,
 		codeErrXCmdNumArguments:           mysql.ErrXCmdNumArguments,

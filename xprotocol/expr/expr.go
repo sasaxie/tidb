@@ -1,10 +1,11 @@
 package expr
 
 import (
-	"github.com/pingcap/tipb/go-mysqlx/Expr"
-	"github.com/pingcap/tipb/go-mysqlx/Datatypes"
-	"github.com/pingcap/tidb/xprotocol/util"
 	"strconv"
+
+	"github.com/pingcap/tidb/xprotocol/util"
+	"github.com/pingcap/tipb/go-mysqlx/Datatypes"
+	"github.com/pingcap/tipb/go-mysqlx/Expr"
 )
 
 type generator interface {
@@ -16,31 +17,31 @@ type expr struct {
 	expr       *Mysqlx_Expr.Expr
 }
 
-func (e *expr)generate(qb *queryBuilder) (*queryBuilder, error) {
-	var generator generator
+func (e *expr) generate(qb *queryBuilder) (*queryBuilder, error) {
+	var g generator
 
 	expr := e.expr
 	switch expr.GetType() {
 	case Mysqlx_Expr.Expr_IDENT:
-		generator = &ident{e.isRelation, expr.GetIdentifier()}
+		g = &ident{e.isRelation, expr.GetIdentifier()}
 	case Mysqlx_Expr.Expr_LITERAL:
-		generator = &scalar{expr.GetLiteral()}
+		g = &scalar{expr.GetLiteral()}
 	case Mysqlx_Expr.Expr_VARIABLE:
-		generator = &variable{expr.GetVariable()}
+		g = &variable{expr.GetVariable()}
 	case Mysqlx_Expr.Expr_FUNC_CALL:
-		generator = &funcCall{expr.GetFunctionCall()}
+		g = &funcCall{expr.GetFunctionCall()}
 	case Mysqlx_Expr.Expr_OPERATOR:
-		generator = &operator{expr.GetOperator()}
+		g = &operator{expr.GetOperator()}
 	case Mysqlx_Expr.Expr_PLACEHOLDER:
-		generator = &placeHolder{expr.GetPosition()}
+		g = &placeHolder{expr.GetPosition()}
 	case Mysqlx_Expr.Expr_OBJECT:
-		generator = &object{expr.GetObject()}
+		g = &object{expr.GetObject()}
 	case Mysqlx_Expr.Expr_ARRAY:
-		generator = &array{expr.GetArray()}
+		g = &array{expr.GetArray()}
 	default:
-		return nil, util.ErXBadMessage
+		return nil, util.ErrXBadMessage
 	}
-	return generator.generate(qb)
+	return g.generate(qb)
 }
 
 type ident struct {
@@ -53,14 +54,14 @@ func (i *ident) generate(qb *queryBuilder) (*queryBuilder, error) {
 	tableName := i.identifier.GetTableName()
 
 	if schemaName != "" && tableName == "" {
-		return nil, util.ErrorMessage(util.CodeErXExprMissingArg,
+		return nil, util.ErrorMessage(util.CodeErrXExprMissingArg,
 			"Table name is required if schema name is specified in ColumnIdentifier.")
 	}
 
 	docPath := i.identifier.GetDocumentPath()
 	name := i.identifier.GetName()
-	if tableName == "" && name == "" &&	i.isRelation &&	(len(docPath) > 0) {
-		return nil, util.ErrorMessage(util.CodeErXExprMissingArg,
+	if tableName == "" && name == "" && i.isRelation && (len(docPath) > 0) {
+		return nil, util.ErrorMessage(util.CodeErrXExprMissingArg,
 			"Column name is required if table name is specified in ColumnIdentifier.")
 	}
 
@@ -96,9 +97,10 @@ func (i *ident) generate(qb *queryBuilder) (*queryBuilder, error) {
 	return qb, nil
 }
 
-type scalar struct{
+type scalar struct {
 	scalar *Mysqlx_Datatypes.Scalar
 }
+
 func (l *scalar) generate(qb *queryBuilder) (*queryBuilder, error) {
 	literal := l.scalar
 	switch literal.GetType() {
@@ -126,51 +128,55 @@ func (l *scalar) generate(qb *queryBuilder) (*queryBuilder, error) {
 	case Mysqlx_Datatypes.Scalar_V_BOOL:
 		if literal.GetVBool() {
 			return qb.put("TRUE"), nil
-		} else {
-			return qb.put("FALSE"), nil
 		}
+		return qb.put("FALSE"), nil
 	default:
-		return nil, util.ErrorMessage(util.CodeErXExprBadTypeValue,
-			"Invalid value for Mysqlx::Datatypes::Scalar::Type " + literal.GetType().String())
+		return nil, util.ErrorMessage(util.CodeErrXExprBadTypeValue,
+			"Invalid value for Mysqlx::Datatypes::Scalar::Type "+literal.GetType().String())
 	}
 }
 
-type variable struct{
+type variable struct {
 	variable string
 }
+
 func (v *variable) generate(qb *queryBuilder) (*queryBuilder, error) {
 	return nil, nil
 }
 
-type funcCall struct{
+type funcCall struct {
 	functionCall *Mysqlx_Expr.FunctionCall
 }
+
 func (fc *funcCall) generate(qb *queryBuilder) (*queryBuilder, error) {
 	return nil, nil
 }
 
-type operator struct{
+type operator struct {
 	operator *Mysqlx_Expr.Operator
 }
+
 func (op *operator) generate(qb *queryBuilder) (*queryBuilder, error) {
 	return nil, nil
 }
 
-type placeHolder struct{
+type placeHolder struct {
 	position uint32
 }
+
 func (ph *placeHolder) generate(qb *queryBuilder) (*queryBuilder, error) {
 	return nil, nil
 }
 
-type object struct{
+type object struct {
 	object *Mysqlx_Expr.Object
 }
+
 func (ob *object) generate(qb *queryBuilder) (*queryBuilder, error) {
 	return nil, nil
 }
 
-type array struct{
+type array struct {
 	array *Mysqlx_Expr.Array
 }
 
@@ -196,7 +202,7 @@ func (d *docPathArray) generate(qb *queryBuilder) (*queryBuilder, error) {
 		switch item.GetType() {
 		case Mysqlx_Expr.DocumentPathItem_MEMBER:
 			if item.GetValue() == "" {
-				return nil, util.ErrorMessage(util.CodeErXExprBadTypeValue,
+				return nil, util.ErrorMessage(util.CodeErrXExprBadTypeValue,
 					"Invalid empty value for Mysqlx::Expr::DocumentPathItem::MEMBER")
 			}
 			qb.put(util.QuoteIdentifierIfNeeded(item.GetValue()))
@@ -209,7 +215,7 @@ func (d *docPathArray) generate(qb *queryBuilder) (*queryBuilder, error) {
 		case Mysqlx_Expr.DocumentPathItem_DOUBLE_ASTERISK:
 			qb.put("**")
 		default:
-			return nil, util.ErrorMessage(util.CodeErXExprBadTypeValue,
+			return nil, util.ErrorMessage(util.CodeErrXExprBadTypeValue,
 				"Invalid value for Mysqlx::Expr::DocumentPathItem::Type ")
 		}
 	}
@@ -221,8 +227,8 @@ func (d *docPathArray) generate(qb *queryBuilder) (*queryBuilder, error) {
 const (
 	ctPlain    = 0x0000 //   default value; general use of octets
 	ctGeometry = 0x0001 //   BYTES  0x0001 GEOMETRY (WKB encoding)
-	ctJson     = 0x0002 //   BYTES  0x0002 JSON (text encoding)
-	ctXml      = 0x0003 //   BYTES  0x0003 XML (text encoding)
+	ctJSON     = 0x0002 //   BYTES  0x0002 JSON (text encoding)
+	ctXML      = 0x0003 //   BYTES  0x0003 XML (text encoding)
 )
 
 type scalarOctets struct {
@@ -237,13 +243,13 @@ func (so *scalarOctets) generate(qb *queryBuilder) (*queryBuilder, error) {
 		return qb.QuoteString(content), nil
 	case ctGeometry:
 		return qb.put("ST_GEOMETRYFROMWKB(").QuoteString(content).put(")"), nil
-	case ctJson:
-		return qb.put("CAST(").QuoteString(content).put(" AS JSON)") ,nil
-	case ctXml:
+	case ctJSON:
+		return qb.put("CAST(").QuoteString(content).put(" AS JSON)"), nil
+	case ctXML:
 		return qb.QuoteString(content), nil
 	default:
-		return nil, util.ErrorMessage(util.CodeErXExprBadTypeValue,
-			"Invalid content type for Mysqlx::Datatypes::Scalar::Octets " +
+		return nil, util.ErrorMessage(util.CodeErrXExprBadTypeValue,
+			"Invalid content type for Mysqlx::Datatypes::Scalar::Octets "+
 				strconv.FormatUint(uint64(scalarOctets.GetContentType()), 10))
 	}
 }
@@ -262,30 +268,31 @@ func (a *any) generate(qb *queryBuilder) (*queryBuilder, error) {
 		}
 		return qb.put(*generatedQuery), nil
 	default:
-		return nil, util.ErrorMessage(util.CodeErXExprBadTypeValue,
-			"Invalid value for Mysqlx::Datatypes::Any::Type " +
+		return nil, util.ErrorMessage(util.CodeErrXExprBadTypeValue,
+			"Invalid value for Mysqlx::Datatypes::Any::Type "+
 				strconv.Itoa(int(any.GetType())))
 	}
 }
 
+// AddExpr executes add operation.
 func AddExpr(e interface{}, isRelation bool) (*string, error) {
-	var generator generator
+	var g generator
 
 	switch e.(type) {
 	case *Mysqlx_Expr.Expr:
-		generator = &expr{isRelation, e.(*Mysqlx_Expr.Expr)}
+		g = &expr{isRelation, e.(*Mysqlx_Expr.Expr)}
 	case []*Mysqlx_Expr.DocumentPathItem:
-		generator = &docPathArray{e.([]*Mysqlx_Expr.DocumentPathItem)}
+		g = &docPathArray{e.([]*Mysqlx_Expr.DocumentPathItem)}
 	case *Mysqlx_Datatypes.Any:
-		generator = &any{e.(*Mysqlx_Datatypes.Any)}
+		g = &any{e.(*Mysqlx_Datatypes.Any)}
 	case *Mysqlx_Datatypes.Scalar:
-		generator = &scalar{e.(*Mysqlx_Datatypes.Scalar)}
+		g = &scalar{e.(*Mysqlx_Datatypes.Scalar)}
 	case *Mysqlx_Datatypes.Scalar_Octets:
-		generator = &scalarOctets{e.(*Mysqlx_Datatypes.Scalar_Octets)}
+		g = &scalarOctets{e.(*Mysqlx_Datatypes.Scalar_Octets)}
 	default:
-		return nil, util.ErXBadMessage
+		return nil, util.ErrXBadMessage
 	}
 
-	qb, err := generator.generate(&queryBuilder{"", false, false})
+	qb, err := g.generate(&queryBuilder{"", false, false})
 	return &qb.str, err
 }

@@ -325,7 +325,7 @@ func (xs *xSession) handleMessage(msgType Mysqlx.ClientMessages_Type, payload []
 	// @TODO will support in next pr
 	case Mysqlx.ClientMessages_CRUD_FIND, Mysqlx.ClientMessages_CRUD_INSERT, Mysqlx.ClientMessages_CRUD_UPDATE, Mysqlx.ClientMessages_CRUD_DELETE,
 		Mysqlx.ClientMessages_CRUD_CREATE_VIEW, Mysqlx.ClientMessages_CRUD_MODIFY_VIEW, Mysqlx.ClientMessages_CRUD_DROP_VIEW:
-		return xs.crud.DealCrudStmtExecute(msgType, payload)
+		return xs.crud.dealCrudStmtExecute(msgType, payload)
 	// @TODO will support in next pr
 	case Mysqlx.ClientMessages_EXPECT_OPEN, Mysqlx.ClientMessages_EXPECT_CLOSE:
 		return xutil.ErrXBadMessage

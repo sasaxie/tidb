@@ -19,7 +19,7 @@ import (
 
 type xSession struct {
 	xsql                   *xSQL
-	crud                   *XCrud
+	crud                   *xCrud
 	sessionID              uint32
 	sendWarnings           bool
 	sendXPluginDeprecation bool
@@ -28,7 +28,7 @@ type xSession struct {
 func (xcc *mysqlXClientConn) createXSession() *xSession {
 	return &xSession{
 		xsql:                   createXSQL(xcc),
-		crud:                   CreateCrud(xcc),
+		crud:                   createCrud(xcc),
 		sessionID:              atomic.AddUint32(&baseSessionID, 1),
 		sendWarnings:           true,
 		sendXPluginDeprecation: true,
