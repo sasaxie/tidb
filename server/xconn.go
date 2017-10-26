@@ -159,7 +159,7 @@ func (xcc *mysqlXClientConn) handleMessage(tp Mysqlx.ClientMessages_Type, msg []
 		return nil
 	default:
 		log.Infof("%d: Invalid message %d received during client initialization", xcc.connectionID, tp)
-		return xutil.ErXBadMessage
+		return xutil.ErrXBadMessage
 	}
 }
 
@@ -191,7 +191,7 @@ func (xcc *mysqlXClientConn) setCapabilities(msg []byte) error {
 
 	if useTLS, ok := vals["tls"]; ok {
 		if useTLS {
-			return xcc.writeError(xutil.ErXCapabilitiesPrepareFailed.GenByArgs("tls"))
+			return xcc.writeError(xutil.ErrXCapabilitiesPrepareFailed.GenByArgs("tls"))
 		}
 	}
 	return nil
@@ -286,8 +286,7 @@ func (xcc *mysqlXClientConn) id() uint32 {
 }
 
 func (xcc *mysqlXClientConn) showProcess() util.ProcessInfo {
-	//return xcc.ctx.ShowProcess()
-	return util.ProcessInfo{}
+	return xcc.ctx.ShowProcess()
 }
 
 func (xcc *mysqlXClientConn) useDB(db string) (err error) {
@@ -329,8 +328,8 @@ func (xs *xSession) handleMessage(msgType Mysqlx.ClientMessages_Type, payload []
 		return xs.crud.DealCrudStmtExecute(msgType, payload)
 	// @TODO will support in next pr
 	case Mysqlx.ClientMessages_EXPECT_OPEN, Mysqlx.ClientMessages_EXPECT_CLOSE:
-		return xutil.ErXBadMessage
+		return xutil.ErrXBadMessage
 	default:
-		return xutil.ErXBadMessage
+		return xutil.ErrXBadMessage
 	}
 }

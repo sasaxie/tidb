@@ -15,11 +15,12 @@ package server
 
 import (
 	"bytes"
+	"net"
+
 	"github.com/pingcap/tidb/mysql"
 	"github.com/pingcap/tidb/util"
 	"github.com/pingcap/tidb/util/auth"
 	xutil "github.com/pingcap/tidb/xprotocol/util"
-	"net"
 )
 
 type authMysql41State int32
@@ -59,17 +60,17 @@ func (spa *saslMysql41Auth) handleStart(mechanism *string, data []byte, initialR
 func (spa *saslMysql41Auth) handleContinue(data []byte) *response {
 	if spa.mState == sWaitingResponse {
 		dbname, user, passwd := spa.extractNullTerminatedElement(data)
-		if dbname == nil || user == nil || passwd == nil {
+		if dbname == "" || user == "" {
 			return &response{
 				status:  authFailed,
-				data:    xutil.ErXBadMessage.ToSQLError().Message,
-				errCode: xutil.ErXBadMessage.ToSQLError().Code,
+				data:    xutil.ErrXBadMessage.ToSQLError().Message,
+				errCode: xutil.ErrXBadMessage.ToSQLError().Code,
 			}
 		}
 
 		xcc := spa.xauth.xcc
-		xcc.dbname = string(dbname)
-		xcc.user = string(user)
+		xcc.dbname = dbname
+		xcc.user = user
 
 		spa.mState = sDone
 		if !spa.xauth.xcc.server.skipAuth() {
@@ -79,15 +80,25 @@ func (spa *saslMysql41Auth) handleContinue(data []byte) *response {
 			if err != nil {
 				return &response{
 					status:  authFailed,
-					data:    xutil.ErrAccessDenied.ToSQLError().Message,
+					data:    xutil.ErrAccessDenied.GenByArgs(xcc.user, host, "YES").ToSQLError().Message,
 					errCode: xutil.ErrAccessDenied.ToSQLError().Code,
 				}
 			}
+			var hpwd []byte
+			if len(passwd) != 0 {
+				if hpwd, err = auth.DecodePassword(string(passwd)); err != nil {
+					return &response{
+						status:  authFailed,
+						data:    xutil.ErrAccessDenied.GenByArgs(xcc.user, host, "YES").ToSQLError().Message,
+						errCode: xutil.ErrAccessDenied.ToSQLError().Code,
+					}
+				}
+			}
 			if !spa.xauth.xcc.ctx.Auth(&auth.UserIdentity{Username: string(user), Hostname: host},
-				passwd, spa.mSalts) {
+				hpwd, spa.mSalts) {
 				return &response{
 					status:  authFailed,
-					data:    xutil.ErrAccessDenied.ToSQLError().Message,
+					data:    xutil.ErrAccessDenied.GenByArgs(xcc.user, host, "YES").ToSQLError().Message,
 					errCode: xutil.ErrAccessDenied.ToSQLError().Code,
 				}
 			}
@@ -106,11 +117,13 @@ func (spa *saslMysql41Auth) handleContinue(data []byte) *response {
 	}
 }
 
-func (spa *saslMysql41Auth) extractNullTerminatedElement(data []byte) ([]byte, []byte, []byte) {
+func (spa *saslMysql41Auth) extractNullTerminatedElement(data []byte) (dbname string, user string, passwd string) {
 	slices := bytes.Split(data, []byte{0})
-
 	if len(slices) != 3 {
-		return nil, nil, nil
+		return
 	}
-	return slices[0], slices[1], slices[2]
+	dbname = string(slices[0])
+	user = string(slices[1])
+	passwd = string(slices[2])
+	return
 }

@@ -99,6 +99,7 @@ func eliminatePhysicalProjection(p PhysicalPlan) PhysicalPlan {
 			newCols[i].DBName = oldCol.DBName
 			newCols[i].TblName = oldCol.TblName
 			newCols[i].ColName = oldCol.ColName
+			newCols[i].OrigTblName = oldCol.OrigTblName
 		}
 	}
 	return newRoot
@@ -121,7 +122,7 @@ func (pe *projectionEliminater) eliminate(p LogicalPlan, replace map[string]*exp
 	childFlag := canEliminate
 	if _, isUnion := p.(*Union); isUnion {
 		childFlag = false
-	} else if isProj {
+	} else if _, isAgg := p.(*LogicalAggregation); isAgg || isProj {
 		childFlag = true
 	}
 	for _, child := range p.Children() {

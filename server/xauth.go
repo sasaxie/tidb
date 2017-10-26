@@ -35,9 +35,8 @@ const (
 )
 
 type xAuth struct {
-	xcc         *mysqlXClientConn
-	authHandler authHandler
-
+	xcc               *mysqlXClientConn
+	authHandler       authHandler
 	mState            sessionState
 	mStateBeforeClose sessionState
 }
@@ -49,7 +48,7 @@ func (xa *xAuth) handleMessage(msgType Mysqlx.ClientMessages_Type, payload []byt
 		return xa.handleReadyMessage(msgType, payload)
 	}
 
-	// this is not the same as it is in mysql-x-plugin, which returns nothing, and you should never get here.
+	// This is not the same as it is in mysql-x-plugin, which returns nothing, and you should never get here.
 	return util.ErrorMessage(mysql.ErrUnknown, "unknown ssession state.")
 }
 
@@ -72,7 +71,7 @@ func (xa *xAuth) handleReadyMessage(msgType Mysqlx.ClientMessages_Type, payload 
 		xa.onSessionReset()
 		return nil
 	}
-	return util.ErXBadMessage
+	return util.ErrXBadMessage
 }
 
 func (xa *xAuth) handleAuthMessage(msgType Mysqlx.ClientMessages_Type, payload []byte) error {
@@ -82,14 +81,14 @@ func (xa *xAuth) handleAuthMessage(msgType Mysqlx.ClientMessages_Type, payload [
 		var data Mysqlx_Session.AuthenticateStart
 		if err := data.Unmarshal(payload); err != nil {
 			log.Errorf("[%d] Can't Unmarshal message %s, err %s", xa.xcc.connectionID, msgType.String(), err.Error())
-			return util.ErXBadMessage
+			return util.ErrXBadMessage
 		}
 
 		xa.authHandler = xa.createAuthHandler(*data.MechName)
 		if xa.authHandler == nil {
 			log.Errorf("[%d] Can't create xAuth handler with mech name %s", xa.xcc.connectionID, *data.MechName)
 			xa.stopAuth()
-			return util.ErrorMessage(mysql.ErrNotSupportedAuthMode, "Invalid authentication method "+*data.MechName)
+			return util.ErrNotSupportedAuthMode
 		}
 
 		r = xa.authHandler.handleStart(data.MechName, data.AuthData, data.InitialResponse)
@@ -97,13 +96,13 @@ func (xa *xAuth) handleAuthMessage(msgType Mysqlx.ClientMessages_Type, payload [
 		var data Mysqlx_Session.AuthenticateContinue
 		if err := data.Unmarshal(payload); err != nil {
 			log.Errorf("[%d] Can't Unmarshal message %s, err %s", xa.xcc.connectionID, msgType.String(), err.Error())
-			return util.ErXBadMessage
+			return util.ErrXBadMessage
 		}
 
 		r = xa.authHandler.handleContinue(data.GetAuthData())
 	default:
 		xa.stopAuth()
-		return util.ErXBadMessage
+		return util.ErrXBadMessage
 	}
 
 	switch r.status {

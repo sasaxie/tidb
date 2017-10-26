@@ -156,6 +156,12 @@ func calculateScalar(hist *Histogram) {
 	}
 }
 
+func checkRepeats(c *C, hg *Histogram) {
+	for _, bkt := range hg.Buckets {
+		c.Assert(bkt.Repeats, Greater, int64(0))
+	}
+}
+
 func (s *testStatisticsSuite) TestBuild(c *C) {
 	bucketCount := int64(256)
 	sketch, _, _ := buildFMSketch(s.rc.(*recordSet).data, 1000)
@@ -169,6 +175,7 @@ func (s *testStatisticsSuite) TestBuild(c *C) {
 		Sketch:    sketch,
 	}
 	col, err := BuildColumn(ctx, bucketCount, 2, collector)
+	checkRepeats(c, col)
 	calculateScalar(col)
 	c.Check(err, IsNil)
 	c.Check(len(col.Buckets), Equals, 232)
@@ -200,7 +207,24 @@ func (s *testStatisticsSuite) TestBuild(c *C) {
 	c.Check(err, IsNil)
 	c.Check(int(count), Equals, 9)
 
+	builder := SampleBuilder{
+		Sc:            mock.NewContext().GetSessionVars().StmtCtx,
+		RecordSet:     s.pk,
+		ColLen:        1,
+		PkID:          -1,
+		MaxSampleSize: 1000,
+		MaxSketchSize: 1000,
+	}
+	s.pk.Close()
+	collectors, _, err := builder.CollectSamplesAndEstimateNDVs()
+	c.Assert(err, IsNil)
+	c.Assert(len(collectors), Equals, 1)
+	col, err = BuildColumn(mock.NewContext(), 256, 2, collectors[0])
+	c.Assert(err, IsNil)
+	checkRepeats(c, col)
+
 	tblCount, col, err := BuildIndex(ctx, bucketCount, 1, ast.RecordSet(s.rc))
+	checkRepeats(c, col)
 	calculateScalar(col)
 	c.Check(err, IsNil)
 	c.Check(int(tblCount), Equals, 100000)
@@ -219,6 +243,7 @@ func (s *testStatisticsSuite) TestBuild(c *C) {
 
 	s.pk.(*recordSet).cursor = 0
 	tblCount, col, err = buildPK(ctx, bucketCount, 4, ast.RecordSet(s.pk))
+	checkRepeats(c, col)
 	calculateScalar(col)
 	c.Check(err, IsNil)
 	c.Check(int(tblCount), Equals, 100000)
@@ -348,13 +373,13 @@ func (s *testStatisticsSuite) TestPseudoTable(c *C) {
 	tbl := PseudoTable(ti.ID)
 	c.Assert(tbl.Count, Greater, int64(0))
 	sc := new(variable.StatementContext)
-	count, err := tbl.ColumnLessRowCount(sc, types.NewIntDatum(100), colInfo)
+	count, err := tbl.ColumnLessRowCount(sc, types.NewIntDatum(100), colInfo.ID)
 	c.Assert(err, IsNil)
 	c.Assert(int(count), Equals, 3333)
-	count, err = tbl.ColumnEqualRowCount(sc, types.NewIntDatum(1000), colInfo)
+	count, err = tbl.ColumnEqualRowCount(sc, types.NewIntDatum(1000), colInfo.ID)
 	c.Assert(err, IsNil)
 	c.Assert(int(count), Equals, 10)
-	count, err = tbl.ColumnBetweenRowCount(sc, types.NewIntDatum(1000), types.NewIntDatum(5000), colInfo)
+	count, err = tbl.ColumnBetweenRowCount(sc, types.NewIntDatum(1000), types.NewIntDatum(5000), colInfo.ID)
 	c.Assert(err, IsNil)
 	c.Assert(int(count), Equals, 250)
 }
