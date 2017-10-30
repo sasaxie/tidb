@@ -16,6 +16,7 @@ type generator interface {
 
 type expr struct {
 	expr       *Mysqlx_Expr.Expr
+	args       []*Mysqlx_Datatypes.Scalar
 	isRelation bool
 }
 
@@ -35,7 +36,7 @@ func (e *expr) generate(qb *queryBuilder) (*queryBuilder, error) {
 	case Mysqlx_Expr.Expr_OPERATOR:
 		g = &operator{expr.GetOperator()}
 	case Mysqlx_Expr.Expr_PLACEHOLDER:
-		g = &placeHolder{expr.GetPosition()}
+		g = &placeHolder{expr.GetPosition(), e.args}
 	case Mysqlx_Expr.Expr_OBJECT:
 		g = &object{expr.GetObject()}
 	case Mysqlx_Expr.Expr_ARRAY:
@@ -143,7 +144,7 @@ type variable struct {
 }
 
 func (v *variable) generate(qb *queryBuilder) (*queryBuilder, error) {
-	return nil, nil
+	return qb.put(v.variable), nil
 }
 
 type ident struct {
@@ -201,10 +202,20 @@ func (fc *funcCall) generate(qb *queryBuilder) (*queryBuilder, error) {
 
 type placeHolder struct {
 	position uint32
+	msg      []*Mysqlx_Datatypes.Scalar
 }
 
 func (ph *placeHolder) generate(qb *queryBuilder) (*queryBuilder, error) {
-	return nil, nil
+	position := ph.position
+	msg := ph.msg
+	if position < uint32(len(msg)) {
+		generatedQuery, err := AddExpr(msg[position], true, nil, nil)
+		if err != nil {
+			return nil, err
+		}
+		return qb.put(generatedQuery), nil
+	}
+	return nil, util.ErrXExprBadValue.GenByArgs("Invalid value of placeholder")
 }
 
 type objectField struct {
@@ -367,7 +378,7 @@ func AddExpr(e interface{}, isRelationOrFunction bool, defaultSchema *string, ar
 
 	switch v := e.(type) {
 	case *Mysqlx_Expr.Expr:
-		g = &expr{v, isRelationOrFunction}
+		g = &expr{v, args, isRelationOrFunction}
 	case *Mysqlx_Expr.Identifier:
 		g = &ident{v, isRelationOrFunction, *defaultSchema}
 	case []*Mysqlx_Expr.DocumentPathItem:
