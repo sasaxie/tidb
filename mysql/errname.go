@@ -910,5 +910,4 @@ var MySQLErrName = map[uint16]string{
 	ErrXCannotDisableNotice:       "Cannot disable notice %s",
 	ErrXExprBadTypeValue:          "%s",
 	ErrXExprBadValue:              "%s",
-
 }

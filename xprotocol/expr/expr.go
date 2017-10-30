@@ -3,10 +3,10 @@ package expr
 import (
 	"strconv"
 
+	"github.com/pingcap/tidb/expression"
 	"github.com/pingcap/tidb/xprotocol/util"
 	"github.com/pingcap/tipb/go-mysqlx/Datatypes"
 	"github.com/pingcap/tipb/go-mysqlx/Expr"
-	"github.com/pingcap/tidb/expression"
 )
 
 type generator interface {
@@ -155,7 +155,7 @@ func (i *ident) generate(qb *queryBuilder) (*queryBuilder, error) {
 	ident := i.ident
 	if i.defaultSchema != "" && ident.GetSchemaName() == "" &&
 		(!i.isFunction || expression.IsBuiltInFunc(ident.GetName())) {
-			qb.put(util.QuoteIdentifierIfNeeded(i.defaultSchema)).dot()
+		qb.put(util.QuoteIdentifierIfNeeded(i.defaultSchema)).dot()
 	}
 
 	if ident.GetSchemaName() != "" {

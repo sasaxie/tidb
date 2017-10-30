@@ -73,7 +73,7 @@ func (qb *queryBuilder) QuoteString(str string) *queryBuilder {
 }
 
 func addUnquoteExpr(e interface{}, isRelation bool) (*string, error) {
-	gen, err := AddExpr(e, isRelation)
+	gen, err := AddExpr(e, isRelation, nil, nil)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}

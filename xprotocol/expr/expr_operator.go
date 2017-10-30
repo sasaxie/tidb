@@ -109,7 +109,7 @@ func (op *operator) unaryOperator(qb *queryBuilder, str string) (*queryBuilder, 
 		return nil, util.ErrXExprBadNumArgs.Gen("Unary operations require exactly one operand in expression.")
 	}
 	qb.put("(")
-	gen, err := AddExpr(params[0], false)
+	gen, err := AddExpr(params[0], false, nil, nil)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -121,16 +121,16 @@ func (op *operator) unaryOperator(qb *queryBuilder, str string) (*queryBuilder, 
 func (op *operator) binaryOperator(qb *queryBuilder, str string) (*queryBuilder, error) {
 	params := op.operator.GetParam()
 	if len(params) != 2 {
-		return nil, util.ErrXExprBadNumArgs.Gen("Unary operations require exactly one operand in expression.")
+		return nil, util.ErrXExprBadNumArgs.Gen("Binary operations require exactly two operands in expression.")
 	}
 	qb.put("(")
-	gen, err := AddExpr(params[0], false)
+	gen, err := AddExpr(params[0], false, nil, nil)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
 	qb.put(gen)
 	qb.put(str)
-	gen, err = AddExpr(params[1], false)
+	gen, err = AddExpr(params[1], false, nil, nil)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -159,7 +159,7 @@ func (op *operator) asteriskOperator(qb *queryBuilder, str string) (*queryBuilde
 		qb.put(gen)
 		qb.put(")")
 	default:
-		return nil, util.ErrXExprBadNumArgs.Gen("Unary operations require exactly one operand in expression.")
+		return nil, util.ErrXExprBadNumArgs.Gen("Asterisk operator require zero or two operands in expression")
 	}
 	return qb, nil
 }
@@ -167,7 +167,7 @@ func (op *operator) asteriskOperator(qb *queryBuilder, str string) (*queryBuilde
 func (op *operator) betweenExpression(qb *queryBuilder, str string) (*queryBuilder, error) {
 	params := op.operator.GetParam()
 	if len(params) != 3 {
-		return nil, util.ErrXExprBadNumArgs.Gen("Unary operations require exactly one operand in expression.")
+		return nil, util.ErrXExprBadNumArgs.Gen("BETWEEN expression requires exactly three parameters.")
 	}
 	qb.put("(")
 	gen, err := addUnquoteExpr(params[0], false)
@@ -194,7 +194,7 @@ func (op *operator) betweenExpression(qb *queryBuilder, str string) (*queryBuild
 func (op *operator) castExpression(qb *queryBuilder, str string) (*queryBuilder, error) {
 	params := op.operator.GetParam()
 	if len(params) != 2 {
-		return nil, util.ErrXExprBadNumArgs.Gen("Unary operations require exactly one operand in expression.")
+		return nil, util.ErrXExprBadNumArgs.Gen("CAST expression requires exactly two parameters.")
 	}
 	qb.put("CAST(")
 	gen, err := addUnquoteExpr(params[0], false)
@@ -204,7 +204,7 @@ func (op *operator) castExpression(qb *queryBuilder, str string) (*queryBuilder,
 	qb.put(gen)
 	qb.put(" AS ")
 	// TODO: Need to validate the second parameter.
-	gen, err = AddExpr(params[1], false)
+	gen, err = AddExpr(params[1], false, nil, nil)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -216,7 +216,7 @@ func (op *operator) castExpression(qb *queryBuilder, str string) (*queryBuilder,
 func (op *operator) dateExpression(qb *queryBuilder, str string) (*queryBuilder, error) {
 	params := op.operator.GetParam()
 	if len(params) != 3 {
-		return nil, util.ErrXExprBadNumArgs.Gen("Unary operations require exactly one operand in expression.")
+		return nil, util.ErrXExprBadNumArgs.Gen("DATE expression requires exactly three parameters.")
 	}
 	qb.put(str)
 	qb.put("(")
@@ -233,7 +233,7 @@ func (op *operator) dateExpression(qb *queryBuilder, str string) (*queryBuilder,
 	qb.put(gen)
 	qb.put(" ")
 	// TODO: Need to validate the third parameter.
-	gen, err = AddExpr(params[2], false)
+	gen, err = AddExpr(params[2], false, nil, nil)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -245,7 +245,7 @@ func (op *operator) dateExpression(qb *queryBuilder, str string) (*queryBuilder,
 func (op *operator) nullaryExpression(qb *queryBuilder, str string) (*queryBuilder, error) {
 	params := op.operator.GetParam()
 	if len(params) != 0 {
-		return nil, util.ErrXExprBadNumArgs.Gen("Unary operations require exactly one operand in expression.")
+		return nil, util.ErrXExprBadNumArgs.Gen("Nullary operator require no operands in expression")
 	}
 	qb.put(str)
 	return qb, nil
@@ -255,12 +255,12 @@ func (op *operator) inExpression(qb *queryBuilder, str string) (*queryBuilder, e
 	params := op.operator.GetParam()
 	switch len(params) {
 	case 0, 1:
-		return nil, util.ErrXExprBadNumArgs.Gen("Unary operations require exactly one operand in expression.")
+		return nil, util.ErrXExprBadNumArgs.Gen("IN expression requires at least two parameters.")
 	case 2:
 		if isArray(params[1]) {
 			qb.put(str)
 			qb.put("JSON_CONTAINS(")
-			gen, err := AddExpr(params[1], false)
+			gen, err := AddExpr(params[1], false, nil, nil)
 			if err != nil {
 				return nil, errors.Trace(err)
 			}
@@ -268,7 +268,7 @@ func (op *operator) inExpression(qb *queryBuilder, str string) (*queryBuilder, e
 			qb.put(",")
 			if isOctets(params[0]) {
 				qb.put("JSON_QUOTE(")
-				gen, err = AddExpr(params[0], false)
+				gen, err = AddExpr(params[0], false, nil, nil)
 				if err != nil {
 					return nil, errors.Trace(err)
 				}
@@ -276,7 +276,7 @@ func (op *operator) inExpression(qb *queryBuilder, str string) (*queryBuilder, e
 				qb.put("))")
 			} else {
 				qb.put("CAST(")
-				gen, err = AddExpr(params[0], false)
+				gen, err = AddExpr(params[0], false, nil, nil)
 				if err != nil {
 					return nil, errors.Trace(err)
 				}
@@ -318,7 +318,7 @@ func isOctets(arg *Mysqlx_Expr.Expr) bool {
 func (op *operator) likeExpression(qb *queryBuilder, str string) (*queryBuilder, error) {
 	params := op.operator.GetParam()
 	if len(params) != 2 && len(params) != 3 {
-		return nil, util.ErrXExprBadNumArgs.Gen("Unary operations require exactly one operand in expression.")
+		return nil, util.ErrXExprBadNumArgs.Gen("LIKE expression requires exactly two or three parameters.")
 	}
 	qb.put("(")
 	gen, err := addUnquoteExpr(params[0], false)
@@ -347,7 +347,7 @@ func (op *operator) likeExpression(qb *queryBuilder, str string) (*queryBuilder,
 func (op *operator) binaryExpression(qb *queryBuilder, str string) (*queryBuilder, error) {
 	params := op.operator.GetParam()
 	if len(params) != 2 {
-		return nil, util.ErrXExprBadNumArgs.Gen("Unary operations require exactly one operand in expression.")
+		return nil, util.ErrXExprBadNumArgs.Gen("BETWEEN expression requires exactly three parameters.")
 	}
 	qb.put("(")
 	gen, err := addUnquoteExpr(params[0], false)
@@ -356,7 +356,7 @@ func (op *operator) binaryExpression(qb *queryBuilder, str string) (*queryBuilde
 	}
 	qb.put(gen)
 	qb.put(str)
-	gen, err = AddExpr(params[1], false)
+	gen, err = AddExpr(params[1], false, nil, nil)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
