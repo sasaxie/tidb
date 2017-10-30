@@ -3,7 +3,6 @@ package server
 import (
 	log "github.com/Sirupsen/logrus"
 	"github.com/pingcap/tidb/util/arena"
-	"github.com/pingcap/tidb/xprotocol/notice"
 	"github.com/pingcap/tidb/xprotocol/util"
 	"github.com/pingcap/tidb/xprotocol/xpacketio"
 	"github.com/pingcap/tipb/go-mysqlx"
@@ -55,7 +54,7 @@ func (crud *xCrud) dealCrudStmtExecute(msgType Mysqlx.ClientMessages_Type, paylo
 	if err != nil {
 		return err
 	}
-	return notice.SendNoticeOK(crud.pkt, "ok")
+	return SendExecOk(crud.pkt, crud.ctx.LastInsertID())
 }
 
 func createCrud(xcc *mysqlXClientConn) *xCrud {
