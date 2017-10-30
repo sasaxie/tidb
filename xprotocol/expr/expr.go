@@ -90,7 +90,7 @@ func (i *columnIdent) generate(qb *queryBuilder) (*queryBuilder, error) {
 		}
 
 		qb.put(",")
-		generatedQuery, err := AddExpr(docPath, i.isRelation, nil, nil)
+		generatedQuery, err := AddExpr(&ConcatExpr{docPath, i.isRelation, nil, nil})
 		if err != nil {
 			return nil, err
 		}
@@ -114,7 +114,7 @@ func (l *scalar) generate(qb *queryBuilder) (*queryBuilder, error) {
 	case Mysqlx_Datatypes.Scalar_V_NULL:
 		return qb.put("NULL"), nil
 	case Mysqlx_Datatypes.Scalar_V_OCTETS:
-		generatedQuery, err := AddExpr(literal.GetVOctets(), false, nil, nil)
+		generatedQuery, err := AddExpr(&ConcatExpr{literal.GetVOctets(), false, nil, nil})
 		if err != nil {
 			return nil, err
 		}
@@ -176,7 +176,7 @@ type funcCall struct {
 func (fc *funcCall) generate(qb *queryBuilder) (*queryBuilder, error) {
 	functionCall := fc.functionCall
 
-	generatedQuery, err := AddExpr(functionCall.GetName(), true, nil, nil)
+	generatedQuery, err := AddExpr(&ConcatExpr{functionCall.GetName(), true, nil, nil})
 	if err != nil {
 		return nil, err
 	}
@@ -184,7 +184,7 @@ func (fc *funcCall) generate(qb *queryBuilder) (*queryBuilder, error) {
 	qb.put("(")
 
 	for _, expr := range functionCall.GetParam() {
-		generatedQuery, err := AddExpr(expr, true, nil, nil)
+		generatedQuery, err := AddExpr(&ConcatExpr{expr, true, nil, nil})
 		if err != nil {
 			return nil, err
 		}
@@ -209,7 +209,7 @@ func (ph *placeHolder) generate(qb *queryBuilder) (*queryBuilder, error) {
 	position := ph.position
 	msg := ph.msg
 	if position < uint32(len(msg)) {
-		generatedQuery, err := AddExpr(msg[position], true, nil, nil)
+		generatedQuery, err := AddExpr(&ConcatExpr{msg[position], true, nil, nil})
 		if err != nil {
 			return nil, err
 		}
@@ -233,7 +233,7 @@ func (ob *objectField) generate(qb *queryBuilder) (*queryBuilder, error) {
 	}
 	qb.QuoteString(objectField.GetKey()).put(",")
 
-	generatedQuery, err := AddExpr(objectField.GetValue(), false, nil, nil)
+	generatedQuery, err := AddExpr(&ConcatExpr{objectField.GetValue(), false, nil, nil})
 	if err != nil {
 		return nil, err
 	}
@@ -249,11 +249,11 @@ type object struct {
 func (ob *object) generate(qb *queryBuilder) (*queryBuilder, error) {
 	qb.put("JSON_OBJECT(")
 	fields := ob.object.GetFld()
-	es := make([]interface{}, len(fields))
+	cs := make([]*ConcatExpr, len(fields))
 	for i, d := range fields {
-		es[i] = d
+		cs[i] = &ConcatExpr{d, false, nil, nil}
 	}
-	gen, err := addForEach(es, addExpr, 0)
+	gen, err := AddForEach(cs, AddExpr, 0)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -269,11 +269,11 @@ type array struct {
 func (a *array) generate(qb *queryBuilder) (*queryBuilder, error) {
 	qb.put("JSON_ARRAY(")
 	values := a.array.GetValue()
-	es := make([]interface{}, len(values))
+	cs := make([]*ConcatExpr, len(values))
 	for i, d := range values {
-		es[i] = d
+		cs[i] = &ConcatExpr{d, false, nil, nil}
 	}
-	gen, err := addForEach(es, addExpr, 0)
+	gen, err := AddForEach(cs, AddExpr, 0)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -360,7 +360,7 @@ func (a *any) generate(qb *queryBuilder) (*queryBuilder, error) {
 	any := a.any
 	switch any.GetType() {
 	case Mysqlx_Datatypes.Any_SCALAR:
-		generatedQuery, err := AddExpr(any.GetScalar(), false, nil, nil)
+		generatedQuery, err := AddExpr(&ConcatExpr{any.GetScalar(), false, nil, nil})
 		if err != nil {
 			return nil, err
 		}
@@ -370,31 +370,4 @@ func (a *any) generate(qb *queryBuilder) (*queryBuilder, error) {
 			"Invalid value for Mysqlx::Datatypes::Any::Type "+
 				strconv.Itoa(int(any.GetType())))
 	}
-}
-
-// AddExpr executes add operation.
-func AddExpr(e interface{}, isRelationOrFunction bool, defaultSchema *string, args []*Mysqlx_Datatypes.Scalar) (*string, error) {
-	var g generator
-
-	switch v := e.(type) {
-	case *Mysqlx_Expr.Expr:
-		g = &expr{v, args, isRelationOrFunction}
-	case *Mysqlx_Expr.Identifier:
-		g = &ident{v, isRelationOrFunction, *defaultSchema}
-	case []*Mysqlx_Expr.DocumentPathItem:
-		g = &docPathArray{v}
-	case *Mysqlx_Expr.Object_ObjectField:
-		g = &objectField{v}
-	case *Mysqlx_Datatypes.Any:
-		g = &any{v}
-	case *Mysqlx_Datatypes.Scalar:
-		g = &scalar{v}
-	case *Mysqlx_Datatypes.Scalar_Octets:
-		g = &scalarOctets{v}
-	default:
-		return nil, util.ErrXBadMessage
-	}
-
-	qb, err := g.generate(&queryBuilder{"", false, false})
-	return &qb.str, err
 }

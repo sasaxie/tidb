@@ -2,6 +2,7 @@ package server
 
 import (
 	log "github.com/Sirupsen/logrus"
+	"github.com/juju/errors"
 	"github.com/pingcap/tidb/xprotocol/expr"
 	"github.com/pingcap/tidb/xprotocol/util"
 	"github.com/pingcap/tipb/go-mysqlx/Crud"
@@ -98,19 +99,16 @@ func (ib *insertBuilder) addRow(row *Mysqlx_Crud.Insert_TypedRow, projectionSize
 		return nil, util.ErrorMessage(util.CodeErrXBadInsertData, "Wrong number of fields in row being inserted")
 	}
 	target := "("
-	generatedField, err := expr.AddExpr(row.GetField()[0], isRelation, nil, msg)
+	fields := row.GetField()
+	cs := make([]*expr.ConcatExpr, len(fields))
+	for i, d := range fields {
+		cs[i] = expr.NewConcatExpr(d, isRelation, nil, msg)
+	}
+	gen, err := expr.AddForEach(cs, expr.AddExpr, 0)
 	if err != nil {
-		return nil, err
+		return nil, errors.Trace(err)
 	}
-	target += *generatedField
-	for _, field := range row.GetField()[1:] {
-		target += ","
-		generatedField, err = expr.AddExpr(field, isRelation, nil, msg)
-		if err != nil {
-			return nil, err
-		}
-		target += *generatedField
-	}
+	target += *gen
 	target += ")"
 	return &target, nil
 }

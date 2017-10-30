@@ -5,6 +5,8 @@ import (
 
 	"github.com/juju/errors"
 	"github.com/pingcap/tidb/xprotocol/util"
+	"github.com/pingcap/tipb/go-mysqlx/Datatypes"
+	"github.com/pingcap/tipb/go-mysqlx/Expr"
 )
 
 type queryBuilder struct {
@@ -73,16 +75,53 @@ func (qb *queryBuilder) QuoteString(str string) *queryBuilder {
 	return qb.put(util.QuoteString(str))
 }
 
-func addExpr(e interface{}, isRelation bool) (*string, error) {
-	gen, err := AddExpr(e, isRelation, nil, nil)
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	return gen, nil
+// ConcatExpr contains expressions which needed to be concat together.
+type ConcatExpr struct {
+	expr                 interface{}
+	isRelationOrFunction bool
+	defaultSchema        *string
+	args                 []*Mysqlx_Datatypes.Scalar
 }
 
-func addUnquoteExpr(e interface{}, isRelation bool) (*string, error) {
-	gen, err := addExpr(e, isRelation)
+// NewConcatExpr returns a new ConcatExpr pointer.
+func NewConcatExpr(expr interface{}, isRelationOrFunction bool, defaultSchema *string, args []*Mysqlx_Datatypes.Scalar) *ConcatExpr {
+	return &ConcatExpr{
+		expr:                 expr,
+		isRelationOrFunction: isRelationOrFunction,
+		defaultSchema:        defaultSchema,
+		args:                 args,
+	}
+}
+
+// AddExpr executes add operation.
+func AddExpr(c *ConcatExpr) (*string, error) {
+	var g generator
+
+	switch v := c.expr.(type) {
+	case *Mysqlx_Expr.Expr:
+		g = &expr{v, c.args, c.isRelationOrFunction}
+	case *Mysqlx_Expr.Identifier:
+		g = &ident{v, c.isRelationOrFunction, *c.defaultSchema}
+	case []*Mysqlx_Expr.DocumentPathItem:
+		g = &docPathArray{v}
+	case *Mysqlx_Expr.Object_ObjectField:
+		g = &objectField{v}
+	case *Mysqlx_Datatypes.Any:
+		g = &any{v}
+	case *Mysqlx_Datatypes.Scalar:
+		g = &scalar{v}
+	case *Mysqlx_Datatypes.Scalar_Octets:
+		g = &scalarOctets{v}
+	default:
+		return nil, util.ErrXBadMessage
+	}
+
+	qb, err := g.generate(&queryBuilder{"", false, false})
+	return &qb.str, err
+}
+
+func addUnquoteExpr(c *ConcatExpr) (*string, error) {
+	gen, err := AddExpr(c)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -90,19 +129,20 @@ func addUnquoteExpr(e interface{}, isRelation bool) (*string, error) {
 	return &str, nil
 }
 
-func addForEach(es []interface{}, f func(e interface{}, isRelation bool) (*string, error), offset int) (*string, error) {
-	if len(es) == 0 {
+// AddForEach concats each expression.
+func AddForEach(cs []*ConcatExpr, f func(c *ConcatExpr) (*string, error), offset int) (*string, error) {
+	if len(cs) == 0 {
 		return nil, nil
 	}
 	var str string
-	for _, e := range es[offset : len(es)-1] {
-		gen, err := f(e, false)
+	for _, c := range cs[offset : len(cs)-1] {
+		gen, err := f(c)
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
 		str += *gen + ","
 	}
-	gen, err := f(es[len(es)-1], false)
+	gen, err := f(cs[len(cs)-1])
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
