@@ -5,6 +5,7 @@ import (
 	"github.com/pingcap/tidb/xprotocol/expr"
 	"github.com/pingcap/tidb/xprotocol/util"
 	"github.com/pingcap/tipb/go-mysqlx/Crud"
+	"github.com/pingcap/tipb/go-mysqlx/Datatypes"
 )
 
 type insertBuilder struct{}
@@ -31,7 +32,7 @@ func (ib *insertBuilder) build(payload []byte) (*string, error) {
 	}
 	sqlQuery += *generatedField
 
-	generatedField, err = ib.addValues(msg.Row, projectionSize, isRelation)
+	generatedField, err = ib.addValues(msg.Row, projectionSize, isRelation, msg.GetArgs())
 	if err != nil {
 		return nil, err
 	}
@@ -67,13 +68,13 @@ func (ib *insertBuilder) addProjection(p []*Mysqlx_Crud.Column, tableDataMode bo
 	return &target, nil
 }
 
-func (ib *insertBuilder) addValues(c []*Mysqlx_Crud.Insert_TypedRow, projectionSize int, isRelation bool) (*string, error) {
+func (ib *insertBuilder) addValues(c []*Mysqlx_Crud.Insert_TypedRow, projectionSize int, isRelation bool, msg []*Mysqlx_Datatypes.Scalar) (*string, error) {
 	if len(c) == 0 {
 		return nil, util.ErrorMessage(util.CodeErrXBadProjection, "Missing row data for Insert")
 	}
 	target := " VALUES "
 
-	generatedField, err := ib.addRow(c[0], projectionSize, isRelation)
+	generatedField, err := ib.addRow(c[0], projectionSize, isRelation, msg)
 	if err != nil {
 		return nil, err
 	}
@@ -81,7 +82,7 @@ func (ib *insertBuilder) addValues(c []*Mysqlx_Crud.Insert_TypedRow, projectionS
 	target += *generatedField
 	for _, row := range c[1:] {
 		target += ","
-		generatedField, err = ib.addRow(row, projectionSize, isRelation)
+		generatedField, err = ib.addRow(row, projectionSize, isRelation, msg)
 		if err != nil {
 			return nil, err
 		}
@@ -91,20 +92,20 @@ func (ib *insertBuilder) addValues(c []*Mysqlx_Crud.Insert_TypedRow, projectionS
 	return &target, nil
 }
 
-func (ib *insertBuilder) addRow(row *Mysqlx_Crud.Insert_TypedRow, projectionSize int, isRelation bool) (*string, error) {
+func (ib *insertBuilder) addRow(row *Mysqlx_Crud.Insert_TypedRow, projectionSize int, isRelation bool, msg []*Mysqlx_Datatypes.Scalar) (*string, error) {
 	if len(row.GetField()) == 0 || len(row.GetField()) != projectionSize {
 		log.Infof("[XUWT] row filed(%d), projection size(%d)", len(row.GetField()), projectionSize)
 		return nil, util.ErrorMessage(util.CodeErrXBadInsertData, "Wrong number of fields in row being inserted")
 	}
 	target := "("
-	generatedField, err := expr.AddExpr(row.GetField()[0], isRelation, nil, nil)
+	generatedField, err := expr.AddExpr(row.GetField()[0], isRelation, nil, msg)
 	if err != nil {
 		return nil, err
 	}
 	target += *generatedField
 	for _, field := range row.GetField()[1:] {
 		target += ","
-		generatedField, err = expr.AddExpr(field, isRelation, nil, nil)
+		generatedField, err = expr.AddExpr(field, isRelation, nil, msg)
 		if err != nil {
 			return nil, err
 		}
