@@ -1,8 +1,10 @@
 package expr
 
 import (
-	"github.com/pingcap/tidb/xprotocol/util"
 	"strconv"
+
+	"github.com/juju/errors"
+	"github.com/pingcap/tidb/xprotocol/util"
 )
 
 type queryBuilder struct {
@@ -68,4 +70,33 @@ func (qb *queryBuilder) put(i interface{}) *queryBuilder {
 
 func (qb *queryBuilder) QuoteString(str string) *queryBuilder {
 	return qb.put(util.QuoteString(str))
+}
+
+func addUnquoteExpr(e interface{}, isRelation bool) (*string, error) {
+	gen, err := AddExpr(e, isRelation)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	str := "JSON_UNQUOTE(" + *gen + ")"
+	return &str, nil
+}
+
+func addForEach(es []interface{}, f func(e interface{}, isRelation bool) (*string, error), offset int) (*string, error) {
+	if len(es) == 0 {
+		return nil, nil
+	}
+	var str string
+	for _, e := range es[offset : len(es)-1] {
+		gen, err := f(e, false)
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+		str += *gen + ","
+	}
+	gen, err := f(es[len(es)], false)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	str += *gen
+	return &str, nil
 }

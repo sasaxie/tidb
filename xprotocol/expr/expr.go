@@ -152,14 +152,6 @@ func (fc *funcCall) generate(qb *queryBuilder) (*queryBuilder, error) {
 	return nil, nil
 }
 
-type operator struct {
-	operator *Mysqlx_Expr.Operator
-}
-
-func (op *operator) generate(qb *queryBuilder) (*queryBuilder, error) {
-	return nil, nil
-}
-
 type placeHolder struct {
 	position uint32
 }
