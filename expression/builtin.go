@@ -538,3 +538,8 @@ var funcs = map[string]functionClass{
 	ast.JSONObject:  &jsonObjectFunctionClass{baseFunctionClass{ast.JSONObject, 0, -1}},
 	ast.JSONArray:   &jsonArrayFunctionClass{baseFunctionClass{ast.JSONArray, 0, -1}},
 }
+
+func IsBuiltInFunc(name string) bool {
+	_, ok := funcs[name]
+	return ok
+}

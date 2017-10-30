@@ -97,14 +97,14 @@ func (ib *insertBuilder) addRow(row *Mysqlx_Crud.Insert_TypedRow, projectionSize
 		return nil, util.ErrorMessage(util.CodeErrXBadInsertData, "Wrong number of fields in row being inserted")
 	}
 	target := "("
-	generatedField, err := expr.AddExpr(row.GetField()[0], isRelation)
+	generatedField, err := expr.AddExpr(row.GetField()[0], isRelation, nil, nil)
 	if err != nil {
 		return nil, err
 	}
 	target += *generatedField
 	for _, field := range row.GetField()[1:] {
 		target += ","
-		generatedField, err = expr.AddExpr(field, isRelation)
+		generatedField, err = expr.AddExpr(field, isRelation, nil, nil)
 		if err != nil {
 			return nil, err
 		}

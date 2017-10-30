@@ -38,6 +38,8 @@ var (
 	ErrNotSupportedAuthMode       = ErrorMessage(mysql.ErrNotSupportedAuthMode, mysql.MySQLErrName[mysql.ErrNotSupportedAuthMode])
 	ErrXExprBadNumArgs            = ErrorMessage(mysql.ErrXExprBadNumArgs, mysql.MySQLErrName[mysql.ErrXExprBadNumArgs])
 	ErrXExprBadOperator           = ErrorMessage(mysql.ErrXExprBadOperator, mysql.MySQLErrName[mysql.ErrXExprBadOperator])
+	ErrXExprBadTypeValue          = ErrorMessage(mysql.ErrXExprBadTypeValue, mysql.MySQLErrName[mysql.ErrXExprBadTypeValue])
+	ErrXExprBadValue              = ErrorMessage(mysql.ErrXExprBadValue, mysql.MySQLErrName[mysql.ErrXExprBadValue])
 )
 
 // Error Codes

@@ -6,6 +6,7 @@ import (
 	"github.com/pingcap/tidb/xprotocol/util"
 	"github.com/pingcap/tipb/go-mysqlx/Datatypes"
 	"github.com/pingcap/tipb/go-mysqlx/Expr"
+	"github.com/pingcap/tidb/expression"
 )
 
 type generator interface {
@@ -13,8 +14,8 @@ type generator interface {
 }
 
 type expr struct {
-	isRelation bool
 	expr       *Mysqlx_Expr.Expr
+	isRelation bool
 }
 
 func (e *expr) generate(qb *queryBuilder) (*queryBuilder, error) {
@@ -23,7 +24,7 @@ func (e *expr) generate(qb *queryBuilder) (*queryBuilder, error) {
 	expr := e.expr
 	switch expr.GetType() {
 	case Mysqlx_Expr.Expr_IDENT:
-		g = &ident{e.isRelation, expr.GetIdentifier()}
+		g = &columnIdent{expr.GetIdentifier(), e.isRelation}
 	case Mysqlx_Expr.Expr_LITERAL:
 		g = &scalar{expr.GetLiteral()}
 	case Mysqlx_Expr.Expr_VARIABLE:
@@ -44,12 +45,12 @@ func (e *expr) generate(qb *queryBuilder) (*queryBuilder, error) {
 	return g.generate(qb)
 }
 
-type ident struct {
-	isRelation bool
+type columnIdent struct {
 	identifier *Mysqlx_Expr.ColumnIdentifier
+	isRelation bool
 }
 
-func (i *ident) generate(qb *queryBuilder) (*queryBuilder, error) {
+func (i *columnIdent) generate(qb *queryBuilder) (*queryBuilder, error) {
 	schemaName := i.identifier.GetSchemaName()
 	tableName := i.identifier.GetTableName()
 
@@ -87,7 +88,7 @@ func (i *ident) generate(qb *queryBuilder) (*queryBuilder, error) {
 		}
 
 		qb.put(",")
-		generatedQuery, err := AddExpr(docPath, i.isRelation)
+		generatedQuery, err := AddExpr(docPath, i.isRelation, nil, nil)
 		if err != nil {
 			return nil, err
 		}
@@ -111,7 +112,7 @@ func (l *scalar) generate(qb *queryBuilder) (*queryBuilder, error) {
 	case Mysqlx_Datatypes.Scalar_V_NULL:
 		return qb.put("NULL"), nil
 	case Mysqlx_Datatypes.Scalar_V_OCTETS:
-		generatedQuery, err := AddExpr(literal.GetVOctets(), false)
+		generatedQuery, err := AddExpr(literal.GetVOctets(), false, nil, nil)
 		if err != nil {
 			return nil, err
 		}
@@ -144,12 +145,57 @@ func (v *variable) generate(qb *queryBuilder) (*queryBuilder, error) {
 	return nil, nil
 }
 
+type ident struct {
+	ident         *Mysqlx_Expr.Identifier
+	isFunction    bool
+	defaultSchema string
+}
+
+func (i *ident) generate(qb *queryBuilder) (*queryBuilder, error) {
+	ident := i.ident
+	if i.defaultSchema != "" && ident.GetSchemaName() == "" &&
+		(!i.isFunction || expression.IsBuiltInFunc(ident.GetName())) {
+			qb.put(util.QuoteIdentifierIfNeeded(i.defaultSchema)).dot()
+	}
+
+	if ident.GetSchemaName() != "" {
+		qb.put(util.QuoteIdentifier(ident.GetSchemaName())).dot()
+	}
+
+	qb.put(util.QuoteIdentifierIfNeeded(ident.GetName()))
+
+	return qb, nil
+}
+
 type funcCall struct {
 	functionCall *Mysqlx_Expr.FunctionCall
 }
 
 func (fc *funcCall) generate(qb *queryBuilder) (*queryBuilder, error) {
-	return nil, nil
+	functionCall := fc.functionCall
+
+	generatedQuery, err := AddExpr(functionCall.GetName(), true, nil, nil)
+	if err != nil {
+		return nil, err
+	}
+	qb.put(generatedQuery)
+	qb.put("(")
+
+	for _, expr := range functionCall.GetParam() {
+		generatedQuery, err := AddExpr(expr, true, nil, nil)
+		if err != nil {
+			return nil, err
+		}
+
+		if expr.GetType() == Mysqlx_Expr.Expr_IDENT && len(expr.Identifier.GetDocumentPath()) > 0 {
+			qb.put("JSON_UNQUOTE(").put(generatedQuery).put(")")
+		} else {
+			qb.put(generatedQuery).put(",")
+		}
+	}
+
+	qb.put(")")
+	return qb, nil
 }
 
 type placeHolder struct {
@@ -160,12 +206,45 @@ func (ph *placeHolder) generate(qb *queryBuilder) (*queryBuilder, error) {
 	return nil, nil
 }
 
+type objectField struct {
+	objectField *Mysqlx_Expr.Object_ObjectField
+}
+
+func (ob *objectField) generate(qb *queryBuilder) (*queryBuilder, error) {
+	objectField := ob.objectField
+	if objectField.GetKey() == "" {
+		return nil, util.ErrXExprBadValue.GenByArgs("Invalid key for Mysqlx::Expr::Object")
+	}
+
+	if objectField.GetValue() == nil {
+		return nil, util.ErrXExprBadValue.GenByArgs("Invalid value for Mysqlx::Expr::Object on key '" + objectField.GetKey() + "'")
+	}
+	qb.QuoteString(objectField.GetKey()).put(",")
+
+	generatedQuery, err := AddExpr(objectField.GetValue(), false, nil, nil)
+	if err != nil {
+		return nil, err
+	}
+	qb.put(generatedQuery)
+
+	return qb, nil
+}
+
 type object struct {
 	object *Mysqlx_Expr.Object
 }
 
 func (ob *object) generate(qb *queryBuilder) (*queryBuilder, error) {
-	return nil, nil
+	qb.put("JSON_OBJECT(")
+	for _, ObjectField := range ob.object.GetFld() {
+		generatedQuery, err := AddExpr(ObjectField, false, nil, nil)
+		if err != nil {
+			return nil, err
+		}
+		qb.put(generatedQuery).put(",")
+	}
+	qb.put(")")
+	return qb, nil
 }
 
 type array struct {
@@ -173,7 +252,16 @@ type array struct {
 }
 
 func (a *array) generate(qb *queryBuilder) (*queryBuilder, error) {
-	return nil, nil
+	qb.put("JSON_ARRAY(")
+	for _, expr := range a.array.GetValue() {
+		generatedQuery, err := AddExpr(expr, false, nil, nil)
+		if err != nil {
+			return nil, err
+		}
+		qb.put(generatedQuery).put(",")
+	}
+	qb.put(")")
+	return qb, nil
 }
 
 type docPathArray struct {
@@ -254,7 +342,7 @@ func (a *any) generate(qb *queryBuilder) (*queryBuilder, error) {
 	any := a.any
 	switch any.GetType() {
 	case Mysqlx_Datatypes.Any_SCALAR:
-		generatedQuery, err := AddExpr(any.GetScalar(), false)
+		generatedQuery, err := AddExpr(any.GetScalar(), false, nil, nil)
 		if err != nil {
 			return nil, err
 		}
@@ -267,14 +355,18 @@ func (a *any) generate(qb *queryBuilder) (*queryBuilder, error) {
 }
 
 // AddExpr executes add operation.
-func AddExpr(e interface{}, isRelation bool) (*string, error) {
+func AddExpr(e interface{}, isRelationOrFunction bool, defaultSchema *string, args []*Mysqlx_Datatypes.Scalar) (*string, error) {
 	var g generator
 
 	switch e.(type) {
 	case *Mysqlx_Expr.Expr:
-		g = &expr{isRelation, e.(*Mysqlx_Expr.Expr)}
+		g = &expr{e.(*Mysqlx_Expr.Expr), isRelationOrFunction}
+	case *Mysqlx_Expr.Identifier:
+		g = &ident{e.(*Mysqlx_Expr.Identifier), isRelationOrFunction, *defaultSchema}
 	case []*Mysqlx_Expr.DocumentPathItem:
 		g = &docPathArray{e.([]*Mysqlx_Expr.DocumentPathItem)}
+	case *Mysqlx_Expr.Object_ObjectField:
+		g = &objectField{e.(*Mysqlx_Expr.Object_ObjectField)}
 	case *Mysqlx_Datatypes.Any:
 		g = &any{e.(*Mysqlx_Datatypes.Any)}
 	case *Mysqlx_Datatypes.Scalar:

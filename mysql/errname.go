@@ -908,4 +908,7 @@ var MySQLErrName = map[uint16]string{
 	ErrXCmdNumArguments:           "Invalid number of arguments, expected %d but got %d",
 	ErrXCmdArgumentType:           "Invalid type for argument '%s' at #%d (should be %s)",
 	ErrXCannotDisableNotice:       "Cannot disable notice %s",
+	ErrXExprBadTypeValue:          "%s",
+	ErrXExprBadValue:              "%s",
+
 }
