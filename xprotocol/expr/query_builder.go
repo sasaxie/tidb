@@ -42,19 +42,19 @@ func (qb *queryBuilder) dot() *queryBuilder {
 }
 
 func (qb *queryBuilder) put(i interface{}) *queryBuilder {
-	switch i.(type) {
+	switch v := i.(type) {
 	case int64:
-		qb.str += strconv.FormatInt(i.(int64), 10)
+		qb.str += strconv.FormatInt(v, 10)
 	case uint64:
-		qb.str += strconv.FormatUint(i.(uint64), 10)
+		qb.str += strconv.FormatUint(v, 10)
 	case uint32:
-		qb.str += strconv.FormatUint(uint64(i.(uint32)), 10)
+		qb.str += strconv.FormatUint(uint64(v), 10)
 	case float64:
-		qb.str += strconv.FormatFloat(i.(float64), 'g', -1, 64)
+		qb.str += strconv.FormatFloat(v, 'g', -1, 64)
 	case float32:
-		qb.str += strconv.FormatFloat(float64(i.(float32)), 'g', -1, 64)
+		qb.str += strconv.FormatFloat(float64(v), 'g', -1, 64)
 	case string:
-		qb.str += i.(string)
+		qb.str += v
 	case []byte:
 		if qb.inQuoted {
 
@@ -63,8 +63,9 @@ func (qb *queryBuilder) put(i interface{}) *queryBuilder {
 		} else {
 
 		}
+	default:
+		panic("can not put this value")
 	}
-
 	return qb
 }
 
@@ -72,8 +73,16 @@ func (qb *queryBuilder) QuoteString(str string) *queryBuilder {
 	return qb.put(util.QuoteString(str))
 }
 
-func addUnquoteExpr(e interface{}, isRelation bool) (*string, error) {
+func addExpr(e interface{}, isRelation bool) (*string, error) {
 	gen, err := AddExpr(e, isRelation, nil, nil)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	return gen, nil
+}
+
+func addUnquoteExpr(e interface{}, isRelation bool) (*string, error) {
+	gen, err := addExpr(e, isRelation)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -93,7 +102,7 @@ func addForEach(es []interface{}, f func(e interface{}, isRelation bool) (*strin
 		}
 		str += *gen + ","
 	}
-	gen, err := f(es[len(es)], false)
+	gen, err := f(es[len(es)-1], false)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}

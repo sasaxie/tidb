@@ -113,7 +113,7 @@ func (op *operator) unaryOperator(qb *queryBuilder, str string) (*queryBuilder, 
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	qb.put(gen)
+	qb.put(*gen)
 	qb.put(")")
 	return qb, nil
 }
@@ -128,13 +128,13 @@ func (op *operator) binaryOperator(qb *queryBuilder, str string) (*queryBuilder,
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	qb.put(gen)
+	qb.put(*gen)
 	qb.put(str)
 	gen, err = AddExpr(params[1], false, nil, nil)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	qb.put(gen)
+	qb.put(*gen)
 	qb.put(")")
 	return qb, nil
 }
@@ -150,13 +150,13 @@ func (op *operator) asteriskOperator(qb *queryBuilder, str string) (*queryBuilde
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
-		qb.put(gen)
+		qb.put(*gen)
 		qb.put("*")
 		gen, err = addUnquoteExpr(params[0], false)
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
-		qb.put(gen)
+		qb.put(*gen)
 		qb.put(")")
 	default:
 		return nil, util.ErrXExprBadNumArgs.Gen("Asterisk operator require zero or two operands in expression")
@@ -174,19 +174,19 @@ func (op *operator) betweenExpression(qb *queryBuilder, str string) (*queryBuild
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	qb.put(gen)
+	qb.put(*gen)
 	qb.put(str)
 	gen, err = addUnquoteExpr(params[1], false)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	qb.put(gen)
+	qb.put(*gen)
 	qb.put(" AND ")
 	gen, err = addUnquoteExpr(params[2], false)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	qb.put(gen)
+	qb.put(*gen)
 	qb.put(")")
 	return qb, nil
 }
@@ -201,14 +201,14 @@ func (op *operator) castExpression(qb *queryBuilder, str string) (*queryBuilder,
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	qb.put(gen)
+	qb.put(*gen)
 	qb.put(" AS ")
 	// TODO: Need to validate the second parameter.
 	gen, err = AddExpr(params[1], false, nil, nil)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	qb.put(gen)
+	qb.put(*gen)
 	qb.put(")")
 	return qb, nil
 }
@@ -224,20 +224,20 @@ func (op *operator) dateExpression(qb *queryBuilder, str string) (*queryBuilder,
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	qb.put(gen)
+	qb.put(*gen)
 	qb.put(", INTERVAL ")
 	gen, err = addUnquoteExpr(params[1], false)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	qb.put(gen)
+	qb.put(*gen)
 	qb.put(" ")
 	// TODO: Need to validate the third parameter.
 	gen, err = AddExpr(params[2], false, nil, nil)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	qb.put(gen)
+	qb.put(*gen)
 	qb.put(")")
 	return qb, nil
 }
@@ -264,7 +264,7 @@ func (op *operator) inExpression(qb *queryBuilder, str string) (*queryBuilder, e
 			if err != nil {
 				return nil, errors.Trace(err)
 			}
-			qb.put(gen)
+			qb.put(*gen)
 			qb.put(",")
 			if isOctets(params[0]) {
 				qb.put("JSON_QUOTE(")
@@ -272,7 +272,7 @@ func (op *operator) inExpression(qb *queryBuilder, str string) (*queryBuilder, e
 				if err != nil {
 					return nil, errors.Trace(err)
 				}
-				qb.put(gen)
+				qb.put(*gen)
 				qb.put("))")
 			} else {
 				qb.put("CAST(")
@@ -280,7 +280,7 @@ func (op *operator) inExpression(qb *queryBuilder, str string) (*queryBuilder, e
 				if err != nil {
 					return nil, errors.Trace(err)
 				}
-				qb.put(gen)
+				qb.put(*gen)
 				qb.put(" AS JSON))")
 			}
 			break
@@ -292,7 +292,7 @@ func (op *operator) inExpression(qb *queryBuilder, str string) (*queryBuilder, e
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
-		qb.put(gen)
+		qb.put(*gen)
 		qb.put(" ")
 		qb.put(str)
 		qb.put("IN (")
@@ -325,20 +325,20 @@ func (op *operator) likeExpression(qb *queryBuilder, str string) (*queryBuilder,
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	qb.put(gen)
+	qb.put(*gen)
 	qb.put(str)
 	gen, err = addUnquoteExpr(params[1], false)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	qb.put(gen)
+	qb.put(*gen)
 	if len(params) == 3 {
 		qb.put(" ESCAPE ")
 		gen, err = addUnquoteExpr(params[2], false)
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
-		qb.put(gen)
+		qb.put(*gen)
 	}
 	qb.put(")")
 	return qb, nil
@@ -354,13 +354,13 @@ func (op *operator) binaryExpression(qb *queryBuilder, str string) (*queryBuilde
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	qb.put(gen)
+	qb.put(*gen)
 	qb.put(str)
 	gen, err = AddExpr(params[1], false, nil, nil)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	qb.put(gen)
+	qb.put(*gen)
 	qb.put(")")
 	return qb, nil
 }

@@ -3,6 +3,7 @@ package expr
 import (
 	"strconv"
 
+	"github.com/juju/errors"
 	"github.com/pingcap/tidb/expression"
 	"github.com/pingcap/tidb/xprotocol/util"
 	"github.com/pingcap/tipb/go-mysqlx/Datatypes"
@@ -178,7 +179,7 @@ func (fc *funcCall) generate(qb *queryBuilder) (*queryBuilder, error) {
 	if err != nil {
 		return nil, err
 	}
-	qb.put(generatedQuery)
+	qb.put(*generatedQuery)
 	qb.put("(")
 
 	for _, expr := range functionCall.GetParam() {
@@ -188,9 +189,9 @@ func (fc *funcCall) generate(qb *queryBuilder) (*queryBuilder, error) {
 		}
 
 		if expr.GetType() == Mysqlx_Expr.Expr_IDENT && len(expr.Identifier.GetDocumentPath()) > 0 {
-			qb.put("JSON_UNQUOTE(").put(generatedQuery).put(")")
+			qb.put("JSON_UNQUOTE(").put(*generatedQuery).put(")")
 		} else {
-			qb.put(generatedQuery).put(",")
+			qb.put(*generatedQuery).put(",")
 		}
 	}
 
@@ -225,7 +226,7 @@ func (ob *objectField) generate(qb *queryBuilder) (*queryBuilder, error) {
 	if err != nil {
 		return nil, err
 	}
-	qb.put(generatedQuery)
+	qb.put(*generatedQuery)
 
 	return qb, nil
 }
@@ -236,13 +237,16 @@ type object struct {
 
 func (ob *object) generate(qb *queryBuilder) (*queryBuilder, error) {
 	qb.put("JSON_OBJECT(")
-	for _, ObjectField := range ob.object.GetFld() {
-		generatedQuery, err := AddExpr(ObjectField, false, nil, nil)
-		if err != nil {
-			return nil, err
-		}
-		qb.put(generatedQuery).put(",")
+	fields := ob.object.GetFld()
+	es := make([]interface{}, len(fields))
+	for i, d := range fields {
+		es[i] = d
 	}
+	gen, err := addForEach(es, addExpr, 0)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	qb.put(*gen)
 	qb.put(")")
 	return qb, nil
 }
@@ -253,13 +257,16 @@ type array struct {
 
 func (a *array) generate(qb *queryBuilder) (*queryBuilder, error) {
 	qb.put("JSON_ARRAY(")
-	for _, expr := range a.array.GetValue() {
-		generatedQuery, err := AddExpr(expr, false, nil, nil)
-		if err != nil {
-			return nil, err
-		}
-		qb.put(generatedQuery).put(",")
+	values := a.array.GetValue()
+	es := make([]interface{}, len(values))
+	for i, d := range values {
+		es[i] = d
 	}
+	gen, err := addForEach(es, addExpr, 0)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	qb.put(*gen)
 	qb.put(")")
 	return qb, nil
 }
@@ -358,21 +365,21 @@ func (a *any) generate(qb *queryBuilder) (*queryBuilder, error) {
 func AddExpr(e interface{}, isRelationOrFunction bool, defaultSchema *string, args []*Mysqlx_Datatypes.Scalar) (*string, error) {
 	var g generator
 
-	switch e.(type) {
+	switch v := e.(type) {
 	case *Mysqlx_Expr.Expr:
-		g = &expr{e.(*Mysqlx_Expr.Expr), isRelationOrFunction}
+		g = &expr{v, isRelationOrFunction}
 	case *Mysqlx_Expr.Identifier:
-		g = &ident{e.(*Mysqlx_Expr.Identifier), isRelationOrFunction, *defaultSchema}
+		g = &ident{v, isRelationOrFunction, *defaultSchema}
 	case []*Mysqlx_Expr.DocumentPathItem:
-		g = &docPathArray{e.([]*Mysqlx_Expr.DocumentPathItem)}
+		g = &docPathArray{v}
 	case *Mysqlx_Expr.Object_ObjectField:
-		g = &objectField{e.(*Mysqlx_Expr.Object_ObjectField)}
+		g = &objectField{v}
 	case *Mysqlx_Datatypes.Any:
-		g = &any{e.(*Mysqlx_Datatypes.Any)}
+		g = &any{v}
 	case *Mysqlx_Datatypes.Scalar:
-		g = &scalar{e.(*Mysqlx_Datatypes.Scalar)}
+		g = &scalar{v}
 	case *Mysqlx_Datatypes.Scalar_Octets:
-		g = &scalarOctets{e.(*Mysqlx_Datatypes.Scalar_Octets)}
+		g = &scalarOctets{v}
 	default:
 		return nil, util.ErrXBadMessage
 	}
