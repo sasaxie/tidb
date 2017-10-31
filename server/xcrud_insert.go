@@ -1,3 +1,16 @@
+// Copyright 2017 PingCAP, Inc.
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//     http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
 package server
 
 import (
@@ -9,7 +22,9 @@ import (
 	"github.com/pingcap/tipb/go-mysqlx/Datatypes"
 )
 
-type insertBuilder struct{}
+type insertBuilder struct {
+	baseBuilder
+}
 
 func (ib *insertBuilder) build(payload []byte) (*string, error) {
 	var msg Mysqlx_Crud.Insert
@@ -40,13 +55,6 @@ func (ib *insertBuilder) build(payload []byte) (*string, error) {
 	sqlQuery += *generatedField
 
 	return &sqlQuery, nil
-}
-
-func (ib *insertBuilder) addCollection(c *Mysqlx_Crud.Collection) *string {
-	target := util.QuoteIdentifier(*c.Schema)
-	target += "."
-	target += util.QuoteIdentifier(*c.Name)
-	return &target
 }
 
 func (ib *insertBuilder) addProjection(p []*Mysqlx_Crud.Column, tableDataMode bool) (*string, error) {
