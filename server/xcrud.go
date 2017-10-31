@@ -35,6 +35,14 @@ func (b *baseBuilder) build(payload []byte) (*string, error) {
 	panic("method build of baseBuilder should not be called directly")
 }
 
+func (b *baseBuilder) addAlias(p *Mysqlx_Crud.Projection) *string {
+	target := ""
+	if len(p.GetAlias()) != 0 {
+		target += " AS " + util.QuoteIdentifier(p.GetAlias())
+	}
+	return &target
+}
+
 func (b *baseBuilder) addCollection(c *Mysqlx_Crud.Collection) *string {
 	target := util.QuoteIdentifier(*c.Schema)
 	target += "."
@@ -60,21 +68,15 @@ func (b *baseBuilder) addOrder(ol []*Mysqlx_Crud.Order) (*string, error) {
 		return nil, nil
 	}
 	target := " ORDER BY "
-	gen, err := b.addOrderItem(ol[0])
+	is := make([]interface{}, len(ol))
+	for i, d := range ol {
+		is[i] = d
+	}
+	gen, err := putList(is, b.addOrderItem)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
 	target += *gen
-	if len(ol) > 1 {
-		for _, o := range ol[1:] {
-			target += ","
-			gen, err = b.addOrderItem(o)
-			if err != nil {
-				return nil, errors.Trace(err)
-			}
-			target += *gen
-		}
-	}
 	return &target, nil
 }
 
@@ -101,7 +103,8 @@ func (b *baseBuilder) addLimit(l *Mysqlx_Crud.Limit, noOffset bool) (*string, er
 	return &target, nil
 }
 
-func (b *baseBuilder) addOrderItem(o *Mysqlx_Crud.Order) (*string, error) {
+func (b *baseBuilder) addOrderItem(i interface{}) (*string, error) {
+	o := i.(*Mysqlx_Crud.Order)
 	target := ""
 	gen, err := expr.AddExpr(expr.NewConcatExpr(o.GetExpr(), false, nil, nil))
 	if err != nil {
@@ -117,6 +120,7 @@ func (b *baseBuilder) addOrderItem(o *Mysqlx_Crud.Order) (*string, error) {
 func (crud *xCrud) createCrudBuilder(msgType Mysqlx.ClientMessages_Type) (builder, error) {
 	switch msgType {
 	case Mysqlx.ClientMessages_CRUD_FIND:
+		return &findBuilder{}, nil
 	case Mysqlx.ClientMessages_CRUD_INSERT:
 		return &insertBuilder{}, nil
 	case Mysqlx.ClientMessages_CRUD_UPDATE:

@@ -22,16 +22,16 @@ type deleteBuilder struct {
 	baseBuilder
 }
 
-func (ib *deleteBuilder) build(payload []byte) (*string, error) {
+func (b *deleteBuilder) build(payload []byte) (*string, error) {
 	var msg Mysqlx_Crud.Delete
 	if err := msg.Unmarshal(payload); err != nil {
 		return nil, util.ErrXBadMessage
 	}
 
 	sqlQuery := "DELETE FROM "
-	sqlQuery += *ib.addCollection(msg.GetCollection())
+	sqlQuery += *b.addCollection(msg.GetCollection())
 	if c := msg.GetCriteria(); c != nil {
-		generatedField, err := ib.addFilter(c)
+		generatedField, err := b.addFilter(c)
 		if err != nil {
 			return nil, err
 		}
@@ -39,7 +39,7 @@ func (ib *deleteBuilder) build(payload []byte) (*string, error) {
 	}
 
 	if ol := msg.GetOrder(); ol != nil {
-		generatedField, err := ib.addOrder(ol)
+		generatedField, err := b.addOrder(ol)
 		if err != nil {
 			return nil, err
 		}
@@ -47,7 +47,7 @@ func (ib *deleteBuilder) build(payload []byte) (*string, error) {
 	}
 
 	if l := msg.GetLimit(); l != nil {
-		generatedField, err := ib.addLimit(l, true)
+		generatedField, err := b.addLimit(l, true)
 		if err != nil {
 			return nil, err
 		}

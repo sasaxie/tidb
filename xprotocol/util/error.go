@@ -41,6 +41,8 @@ var (
 	ErrXExprBadTypeValue          = ErrorMessage(mysql.ErrXExprBadTypeValue, mysql.MySQLErrName[mysql.ErrXExprBadTypeValue])
 	ErrXExprBadValue              = ErrorMessage(mysql.ErrXExprBadValue, mysql.MySQLErrName[mysql.ErrXExprBadValue])
 	ErrXInvalidArgument           = ErrorMessage(mysql.ErrXInvalidArgument, mysql.MySQLErrName[mysql.ErrXInvalidArgument])
+	ErrXProjBadKeyName            = ErrorMessage(mysql.ErrXProjBadKeyName, mysql.MySQLErrName[mysql.ErrXProjBadKeyName])
+	ErrXBadProjection             = ErrorMessage(mysql.ErrXBadProjection, mysql.MySQLErrName[mysql.ErrXBadProjection])
 )
 
 // Error Codes
@@ -68,6 +70,7 @@ const (
 	codeErrXExprBadNumArgs                           = terror.ErrCode(mysql.ErrXExprBadNumArgs)
 	codeErrXExprBadOperator                          = terror.ErrCode(mysql.ErrXExprBadOperator)
 	codeErrXInvalidArgument                          = terror.ErrCode(mysql.ErrXInvalidArgument)
+	codeErrXProjBadKeyName                           = terror.ErrCode(mysql.ErrXProjBadKeyName)
 )
 
 func init() {
@@ -95,6 +98,7 @@ func init() {
 		codeErrXExprBadNumArgs:            mysql.ErrXExprBadNumArgs,
 		codeErrXExprBadOperator:           mysql.ErrXExprBadOperator,
 		codeErrXInvalidArgument:           mysql.ErrXInvalidArgument,
+		codeErrXProjBadKeyName:            mysql.ErrXProjBadKeyName,
 	}
 	terror.ErrClassToMySQLCodes[terror.ClassXProtocol] = xProtocolMySQLErrCodes
 }
