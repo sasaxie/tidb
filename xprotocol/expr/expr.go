@@ -303,6 +303,7 @@ func (d *docPathArray) generate(qb *queryBuilder) (*queryBuilder, error) {
 				return nil, util.ErrorMessage(util.CodeErrXExprBadTypeValue,
 					"Invalid empty value for Mysqlx::Expr::DocumentPathItem::MEMBER")
 			}
+			qb.put(".")
 			qb.put(util.QuoteIdentifierIfNeeded(item.GetValue()))
 		case Mysqlx_Expr.DocumentPathItem_MEMBER_ASTERISK:
 			qb.put(".*")
