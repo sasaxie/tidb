@@ -15,11 +15,14 @@ package server
 
 import (
 	log "github.com/Sirupsen/logrus"
+	"github.com/juju/errors"
 	"github.com/pingcap/tidb/util/arena"
+	"github.com/pingcap/tidb/xprotocol/expr"
 	"github.com/pingcap/tidb/xprotocol/util"
 	"github.com/pingcap/tidb/xprotocol/xpacketio"
 	"github.com/pingcap/tipb/go-mysqlx"
 	"github.com/pingcap/tipb/go-mysqlx/Crud"
+	"github.com/pingcap/tipb/go-mysqlx/Expr"
 )
 
 type builder interface {
@@ -29,7 +32,7 @@ type builder interface {
 type baseBuilder struct{}
 
 func (b *baseBuilder) build(payload []byte) (*string, error) {
-	panic("method bulid of baseBulider should not be called directly")
+	panic("method build of baseBuilder should not be called directly")
 }
 
 func (b *baseBuilder) addCollection(c *Mysqlx_Crud.Collection) *string {
@@ -39,6 +42,78 @@ func (b *baseBuilder) addCollection(c *Mysqlx_Crud.Collection) *string {
 	return &target
 }
 
+func (b *baseBuilder) addFilter(f *Mysqlx_Expr.Expr) (*string, error) {
+	if f == nil {
+		return nil, nil
+	}
+	target := " WHERE "
+	gen, err := expr.AddExpr(expr.NewConcatExpr(f, false, nil, nil))
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	target += *gen
+	return &target, nil
+}
+
+func (b *baseBuilder) addOrder(ol []*Mysqlx_Crud.Order) (*string, error) {
+	if len(ol) == 0 {
+		return nil, nil
+	}
+	target := " ORDER BY "
+	gen, err := b.addOrderItem(ol[0])
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	target += *gen
+	if len(ol) > 1 {
+		for _, o := range ol[1:] {
+			target += ","
+			gen, err = b.addOrderItem(o)
+			if err != nil {
+				return nil, errors.Trace(err)
+			}
+			target += *gen
+		}
+	}
+	return &target, nil
+}
+
+func (b *baseBuilder) addLimit(l *Mysqlx_Crud.Limit, noOffset bool) (*string, error) {
+	if l == nil {
+		return nil, nil
+	}
+	target := " LIMIT "
+	if noOffset && l.GetOffset() != 0 {
+		return nil, util.ErrXInvalidCollection.Gen("Invalid parameter: non-zero offset value not allowed for this operation")
+	}
+	if !noOffset {
+		gen, err := expr.AddExpr(expr.NewConcatExpr(l.GetOffset(), false, nil, nil))
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+		target += *gen + ", "
+	}
+	gen, err := expr.AddExpr(expr.NewConcatExpr(l.GetRowCount(), false, nil, nil))
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	target += *gen
+	return &target, nil
+}
+
+func (b *baseBuilder) addOrderItem(o *Mysqlx_Crud.Order) (*string, error) {
+	target := ""
+	gen, err := expr.AddExpr(expr.NewConcatExpr(o.GetExpr(), false, nil, nil))
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	target += *gen
+	if o.GetDirection() == Mysqlx_Crud.Order_DESC {
+		target += " DESC"
+	}
+	return &target, nil
+}
+
 func (crud *xCrud) createCrudBuilder(msgType Mysqlx.ClientMessages_Type) (builder, error) {
 	switch msgType {
 	case Mysqlx.ClientMessages_CRUD_FIND:
@@ -46,6 +121,7 @@ func (crud *xCrud) createCrudBuilder(msgType Mysqlx.ClientMessages_Type) (builde
 		return &insertBuilder{}, nil
 	case Mysqlx.ClientMessages_CRUD_UPDATE:
 	case Mysqlx.ClientMessages_CRUD_DELETE:
+		return &deleteBuilder{}, nil
 	case Mysqlx.ClientMessages_CRUD_CREATE_VIEW:
 	case Mysqlx.ClientMessages_CRUD_MODIFY_VIEW:
 	case Mysqlx.ClientMessages_CRUD_DROP_VIEW:
