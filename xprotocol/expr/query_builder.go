@@ -117,7 +117,10 @@ func AddExpr(c *ConcatExpr) (*string, error) {
 	}
 
 	qb, err := g.generate(&queryBuilder{"", false, false})
-	return &qb.str, err
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	return &qb.str, nil
 }
 
 func addUnquoteExpr(c *ConcatExpr) (*string, error) {
