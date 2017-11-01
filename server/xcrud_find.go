@@ -23,8 +23,6 @@ import (
 
 var derivedTableName = "`_DERIVED_TABLE_`"
 
-type addFunc func(i interface{}) (*string, error)
-
 type findBuilder struct {
 	baseBuilder
 }

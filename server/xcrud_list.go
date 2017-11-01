@@ -15,39 +15,29 @@ package server
 
 import (
 	"github.com/juju/errors"
-	"github.com/pingcap/tipb/go-mysqlx/Crud"
-	"github.com/pingcap/tipb/go-mysqlx/Expr"
 )
 
-func putList(items []interface{}, adder func(interface{}) (*string, error)) (*string, error) {
+type addFunc func(i interface{}) (*string, error)
+
+func putList(items []interface{}, adder addFunc) (*string, error) {
 	if len(items) == 0 {
 		panic("list should have at least one item")
 	}
 	target := ""
-	switch begin := items[0].(type) {
-	case *Mysqlx_Crud.Projection, *Mysqlx_Crud.Order, *Mysqlx_Expr.Expr:
-		gen, err := adder(begin)
-		if err != nil {
-			return nil, errors.Trace(err)
-		}
-		target += *gen
-		if len(items) > 1 {
-			for _, v := range items[1:] {
-				switch item := v.(type) {
-				case *Mysqlx_Crud.Projection, *Mysqlx_Crud.Order, *Mysqlx_Expr.Expr:
-					target += ","
-					gen, err := adder(item)
-					if err != nil {
-						return nil, errors.Trace(err)
-					}
-					target += *gen
-				default:
-					panic("not support type")
-				}
+	gen, err := adder(items[0])
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	target += *gen
+	if len(items) > 1 {
+		for _, v := range items[1:] {
+			target += ","
+			gen, err := adder(v)
+			if err != nil {
+				return nil, errors.Trace(err)
 			}
+			target += *gen
 		}
-	default:
-		panic("not support type")
 	}
 	return &target, nil
 }
