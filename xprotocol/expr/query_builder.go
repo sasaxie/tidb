@@ -94,8 +94,13 @@ func NewConcatExpr(expr interface{}, isRelationOrFunction bool, defaultSchema *s
 }
 
 // AddExpr executes add operation.
-func AddExpr(c *ConcatExpr) (*string, error) {
+func AddExpr(e interface{}) (*string, error) {
 	var g generator
+
+	c, ok := e.(*ConcatExpr)
+	if !ok {
+		return nil, util.ErrXBadMessage
+	}
 
 	switch v := c.expr.(type) {
 	case *Mysqlx_Expr.Expr:
@@ -123,7 +128,7 @@ func AddExpr(c *ConcatExpr) (*string, error) {
 	return &qb.str, nil
 }
 
-func addUnquoteExpr(c *ConcatExpr) (*string, error) {
+func addUnquoteExpr(c interface{}) (*string, error) {
 	gen, err := AddExpr(c)
 	if err != nil {
 		return nil, errors.Trace(err)
@@ -133,17 +138,18 @@ func addUnquoteExpr(c *ConcatExpr) (*string, error) {
 }
 
 // AddForEach concats each expression.
-func AddForEach(cs []*ConcatExpr, f func(c *ConcatExpr) (*string, error), offset int) (*string, error) {
-	if len(cs) == 0 {
-		return nil, nil
+func AddForEach(ca interface{}, f func(c interface{}) (*string, error), offset int, seq string) (*string, error) {
+	cs, ok := ca.([]interface{})
+	str := ""
+	if !ok || len(cs) == 0 {
+		return &str, nil
 	}
-	var str string
 	for _, c := range cs[offset : len(cs)-1] {
 		gen, err := f(c)
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
-		str += *gen + ","
+		str += *gen + seq
 	}
 	gen, err := f(cs[len(cs)-1])
 	if err != nil {

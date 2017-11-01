@@ -296,11 +296,11 @@ func (op *operator) inExpression(qb *queryBuilder, str string) (*queryBuilder, e
 		qb.put(" ")
 		qb.put(str)
 		qb.put("IN (")
-		cs := make([]*ConcatExpr, len(params))
+		cs := make([]interface{}, len(params))
 		for i, d := range params {
 			cs[i] = &ConcatExpr{d, false, nil, nil}
 		}
-		gen, err = AddForEach(cs, addUnquoteExpr, 1)
+		gen, err = AddForEach(cs, addUnquoteExpr, 1, ",")
 		qb.put("))")
 	}
 	return qb, nil

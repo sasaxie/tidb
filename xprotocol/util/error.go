@@ -43,6 +43,10 @@ var (
 	ErrXInvalidArgument           = ErrorMessage(mysql.ErrXInvalidArgument, mysql.MySQLErrName[mysql.ErrXInvalidArgument])
 	ErrXProjBadKeyName            = ErrorMessage(mysql.ErrXProjBadKeyName, mysql.MySQLErrName[mysql.ErrXProjBadKeyName])
 	ErrXBadProjection             = ErrorMessage(mysql.ErrXBadProjection, mysql.MySQLErrName[mysql.ErrXBadProjection])
+	ErrXBadUpdateData             = ErrorMessage(mysql.ErrXBadUpdateData, mysql.MySQLErrName[mysql.ErrXBadUpdateData])
+	ErrXBadColumnToUpdate         = ErrorMessage(mysql.ErrXBadColumnToUpdate, mysql.MySQLErrName[mysql.ErrXBadColumnToUpdate])
+	ErrXBadTypeOfUpdate           = ErrorMessage(mysql.ErrXBadTypeOfUpdate, mysql.MySQLErrName[mysql.ErrXBadTypeOfUpdate])
+	ErrXBadMemberToUpdate         = ErrorMessage(mysql.ErrXBadMemberToUpdate, mysql.MySQLErrName[mysql.ErrXBadMemberToUpdate])
 )
 
 // Error Codes
@@ -71,6 +75,10 @@ const (
 	codeErrXExprBadOperator                          = terror.ErrCode(mysql.ErrXExprBadOperator)
 	codeErrXInvalidArgument                          = terror.ErrCode(mysql.ErrXInvalidArgument)
 	codeErrXProjBadKeyName                           = terror.ErrCode(mysql.ErrXProjBadKeyName)
+	codeErrXBadUpdateData                            = terror.ErrCode(mysql.ErrXBadUpdateData)
+	codeErrXBadColumnToUpdate                        = terror.ErrCode(mysql.ErrXBadColumnToUpdate)
+	codeErrXBadTypeOfUpdate                          = terror.ErrCode(mysql.ErrXBadTypeOfUpdate)
+	codeErrXBadMemberToUpdate                        = terror.ErrCode(mysql.ErrXBadMemberToUpdate)
 )
 
 func init() {
@@ -99,6 +107,10 @@ func init() {
 		codeErrXExprBadOperator:           mysql.ErrXExprBadOperator,
 		codeErrXInvalidArgument:           mysql.ErrXInvalidArgument,
 		codeErrXProjBadKeyName:            mysql.ErrXProjBadKeyName,
+		codeErrXBadUpdateData:             mysql.ErrXBadUpdateData,
+		codeErrXBadColumnToUpdate:         mysql.ErrXBadColumnToUpdate,
+		codeErrXBadTypeOfUpdate:           mysql.ErrXBadTypeOfUpdate,
+		codeErrXBadMemberToUpdate:         mysql.ErrXBadMemberToUpdate,
 	}
 	terror.ErrClassToMySQLCodes[terror.ClassXProtocol] = xProtocolMySQLErrCodes
 }

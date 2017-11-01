@@ -249,11 +249,11 @@ type object struct {
 func (ob *object) generate(qb *queryBuilder) (*queryBuilder, error) {
 	qb.put("JSON_OBJECT(")
 	fields := ob.object.GetFld()
-	cs := make([]*ConcatExpr, len(fields))
+	cs := make([]interface{}, len(fields))
 	for i, d := range fields {
 		cs[i] = &ConcatExpr{d, false, nil, nil}
 	}
-	gen, err := AddForEach(cs, AddExpr, 0)
+	gen, err := AddForEach(cs, AddExpr, 0, ",")
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -269,11 +269,11 @@ type array struct {
 func (a *array) generate(qb *queryBuilder) (*queryBuilder, error) {
 	qb.put("JSON_ARRAY(")
 	values := a.array.GetValue()
-	cs := make([]*ConcatExpr, len(values))
+	cs := make([]interface{}, len(values))
 	for i, d := range values {
 		cs[i] = &ConcatExpr{d, false, nil, nil}
 	}
-	gen, err := AddForEach(cs, AddExpr, 0)
+	gen, err := AddForEach(cs, AddExpr, 0, ",")
 	if err != nil {
 		return nil, errors.Trace(err)
 	}

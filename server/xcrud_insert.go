@@ -41,14 +41,14 @@ func (ib *insertBuilder) build(payload []byte) (*string, error) {
 	}
 
 	sqlQuery := "INSERT INTO "
-	sqlQuery += *ib.addCollection(msg.Collection)
-	generatedField, err := ib.addProjection(msg.Projection, isRelation)
+	sqlQuery += *ib.addCollection(msg.GetCollection())
+	generatedField, err := ib.addProjection(msg.GetProjection(), isRelation)
 	if err != nil {
 		return nil, err
 	}
 	sqlQuery += *generatedField
 
-	generatedField, err = ib.addValues(msg.Row, projectionSize, isRelation, msg.GetArgs())
+	generatedField, err = ib.addValues(msg.GetRow(), projectionSize, isRelation, msg.GetArgs())
 	if err != nil {
 		return nil, err
 	}
@@ -108,11 +108,11 @@ func (ib *insertBuilder) addRow(row *Mysqlx_Crud.Insert_TypedRow, projectionSize
 	}
 	target := "("
 	fields := row.GetField()
-	cs := make([]*expr.ConcatExpr, len(fields))
+	cs := make([]interface{}, len(fields))
 	for i, d := range fields {
 		cs[i] = expr.NewConcatExpr(d, isRelation, nil, msg)
 	}
-	gen, err := expr.AddForEach(cs, expr.AddExpr, 0)
+	gen, err := expr.AddForEach(cs, expr.AddExpr, 0, ",")
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
