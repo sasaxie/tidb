@@ -26,13 +26,14 @@ type insertBuilder struct {
 	baseBuilder
 }
 
-func (ib *insertBuilder) build(payload []byte) (*string, error) {
+func (b *insertBuilder) build(payload []byte) (*string, error) {
 	var msg Mysqlx_Crud.Insert
 	var isRelation bool
 
 	if err := msg.Unmarshal(payload); err != nil {
 		return nil, util.ErrXBadMessage
 	}
+	b.GeneratorInfo = expr.NewGenerator(msg.GetArgs(), msg.GetCollection().GetSchema(), msg.GetDataModel() == Mysqlx_Crud.DataModel_TABLE)
 
 	projectionSize := 1
 	if msg.GetDataModel() == Mysqlx_Crud.DataModel_TABLE {
@@ -41,14 +42,14 @@ func (ib *insertBuilder) build(payload []byte) (*string, error) {
 	}
 
 	sqlQuery := "INSERT INTO "
-	sqlQuery += *ib.addCollection(msg.GetCollection())
-	generatedField, err := ib.addProjection(msg.GetProjection(), isRelation)
+	sqlQuery += *b.addCollection(msg.GetCollection())
+	generatedField, err := b.addProjection(msg.GetProjection(), isRelation)
 	if err != nil {
 		return nil, err
 	}
 	sqlQuery += *generatedField
 
-	generatedField, err = ib.addValues(msg.GetRow(), projectionSize, isRelation, msg.GetArgs())
+	generatedField, err = b.addValues(msg.GetRow(), projectionSize, isRelation, msg.GetArgs())
 	if err != nil {
 		return nil, err
 	}
@@ -57,7 +58,7 @@ func (ib *insertBuilder) build(payload []byte) (*string, error) {
 	return &sqlQuery, nil
 }
 
-func (ib *insertBuilder) addProjection(p []*Mysqlx_Crud.Column, tableDataMode bool) (*string, error) {
+func (b *insertBuilder) addProjection(p []*Mysqlx_Crud.Column, tableDataMode bool) (*string, error) {
 	target := ""
 	if tableDataMode {
 		if len(p) != 0 {
@@ -77,13 +78,13 @@ func (ib *insertBuilder) addProjection(p []*Mysqlx_Crud.Column, tableDataMode bo
 	return &target, nil
 }
 
-func (ib *insertBuilder) addValues(c []*Mysqlx_Crud.Insert_TypedRow, projectionSize int, isRelation bool, msg []*Mysqlx_Datatypes.Scalar) (*string, error) {
+func (b *insertBuilder) addValues(c []*Mysqlx_Crud.Insert_TypedRow, projectionSize int, isRelation bool, msg []*Mysqlx_Datatypes.Scalar) (*string, error) {
 	if len(c) == 0 {
 		return nil, util.ErrorMessage(util.CodeErrXBadProjection, "Missing row data for Insert")
 	}
 	target := " VALUES "
 
-	generatedField, err := ib.addRow(c[0], projectionSize, isRelation, msg)
+	generatedField, err := b.addRow(c[0], projectionSize, isRelation, msg)
 	if err != nil {
 		return nil, err
 	}
@@ -91,7 +92,7 @@ func (ib *insertBuilder) addValues(c []*Mysqlx_Crud.Insert_TypedRow, projectionS
 	target += *generatedField
 	for _, row := range c[1:] {
 		target += ","
-		generatedField, err = ib.addRow(row, projectionSize, isRelation, msg)
+		generatedField, err = b.addRow(row, projectionSize, isRelation, msg)
 		if err != nil {
 			return nil, err
 		}
@@ -101,7 +102,7 @@ func (ib *insertBuilder) addValues(c []*Mysqlx_Crud.Insert_TypedRow, projectionS
 	return &target, nil
 }
 
-func (ib *insertBuilder) addRow(row *Mysqlx_Crud.Insert_TypedRow, projectionSize int, isRelation bool, msg []*Mysqlx_Datatypes.Scalar) (*string, error) {
+func (b *insertBuilder) addRow(row *Mysqlx_Crud.Insert_TypedRow, projectionSize int, isRelation bool, msg []*Mysqlx_Datatypes.Scalar) (*string, error) {
 	if len(row.GetField()) == 0 || len(row.GetField()) != projectionSize {
 		log.Infof("[XUWT] row filed(%d), projection size(%d)", len(row.GetField()), projectionSize)
 		return nil, util.ErrorMessage(util.CodeErrXBadInsertData, "Wrong number of fields in row being inserted")
@@ -110,9 +111,9 @@ func (ib *insertBuilder) addRow(row *Mysqlx_Crud.Insert_TypedRow, projectionSize
 	fields := row.GetField()
 	cs := make([]interface{}, len(fields))
 	for i, d := range fields {
-		cs[i] = expr.NewConcatExpr(d, isRelation, nil, msg)
+		cs[i] = expr.NewConcatExpr(d, b.GeneratorInfo)
 	}
-	gen, err := expr.AddForEach(cs, expr.AddExpr, 0, ",")
+	gen, err := expr.AddForEach(cs, expr.AddExpr, ",")
 	if err != nil {
 		return nil, errors.Trace(err)
 	}

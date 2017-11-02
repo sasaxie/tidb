@@ -1,3 +1,16 @@
+// Copyright 2017 PingCAP, Inc.
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//     http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
 package expr
 
 import (
@@ -77,19 +90,19 @@ func (qb *queryBuilder) QuoteString(str string) *queryBuilder {
 
 // ConcatExpr contains expressions which needed to be concat together.
 type ConcatExpr struct {
-	expr                 interface{}
-	isRelationOrFunction bool
-	defaultSchema        *string
-	args                 []*Mysqlx_Datatypes.Scalar
+	expr interface{}
+	*GeneratorInfo
 }
 
 // NewConcatExpr returns a new ConcatExpr pointer.
-func NewConcatExpr(expr interface{}, isRelationOrFunction bool, defaultSchema *string, args []*Mysqlx_Datatypes.Scalar) *ConcatExpr {
+func NewConcatExpr(expr interface{}, i *GeneratorInfo) *ConcatExpr {
 	return &ConcatExpr{
-		expr:                 expr,
-		isRelationOrFunction: isRelationOrFunction,
-		defaultSchema:        defaultSchema,
-		args:                 args,
+		expr: expr,
+		GeneratorInfo: &GeneratorInfo{
+			args:          i.args,
+			defaultSchema: i.defaultSchema,
+			isRelation:    i.isRelation,
+		},
 	}
 }
 
@@ -104,19 +117,19 @@ func AddExpr(e interface{}) (*string, error) {
 
 	switch v := c.expr.(type) {
 	case *Mysqlx_Expr.Expr:
-		g = &expr{v, c.args, c.isRelationOrFunction}
+		g = &expr{c.GeneratorInfo, v}
 	case *Mysqlx_Expr.Identifier:
-		g = &ident{v, c.isRelationOrFunction, *c.defaultSchema}
+		g = &ident{c.GeneratorInfo, v, false}
 	case []*Mysqlx_Expr.DocumentPathItem:
-		g = &docPathArray{v}
+		g = &docPathArray{c.GeneratorInfo, v}
 	case *Mysqlx_Expr.Object_ObjectField:
-		g = &objectField{v}
+		g = &objectField{c.GeneratorInfo, v}
 	case *Mysqlx_Datatypes.Any:
-		g = &any{v}
+		g = &any{c.GeneratorInfo, v}
 	case *Mysqlx_Datatypes.Scalar:
-		g = &scalar{v}
+		g = &scalar{c.GeneratorInfo, v}
 	case *Mysqlx_Datatypes.Scalar_Octets:
-		g = &scalarOctets{v}
+		g = &scalarOctets{c.GeneratorInfo, v}
 	default:
 		return nil, util.ErrXBadMessage
 	}
@@ -138,13 +151,13 @@ func addUnquoteExpr(c interface{}) (*string, error) {
 }
 
 // AddForEach concats each expression.
-func AddForEach(ca interface{}, f func(c interface{}) (*string, error), offset int, seq string) (*string, error) {
+func AddForEach(ca interface{}, f func(c interface{}) (*string, error), seq string) (*string, error) {
 	cs, ok := ca.([]interface{})
 	str := ""
 	if !ok || len(cs) == 0 {
 		return &str, nil
 	}
-	for _, c := range cs[offset : len(cs)-1] {
+	for _, c := range cs[:len(cs)-1] {
 		gen, err := f(c)
 		if err != nil {
 			return nil, errors.Trace(err)

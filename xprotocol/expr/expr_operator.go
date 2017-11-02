@@ -1,3 +1,16 @@
+// Copyright 2017 PingCAP, Inc.
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//     http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
 package expr
 
 import (
@@ -50,6 +63,7 @@ var nameMap = map[string]string{
 }
 
 type operator struct {
+	*GeneratorInfo
 	operator *Mysqlx_Expr.Operator
 }
 
@@ -109,7 +123,7 @@ func (op *operator) unaryOperator(qb *queryBuilder, str string) (*queryBuilder, 
 		return nil, util.ErrXExprBadNumArgs.Gen("Unary operations require exactly one operand in expression.")
 	}
 	qb.put("(")
-	gen, err := AddExpr(&ConcatExpr{params[0], false, nil, nil})
+	gen, err := AddExpr(NewConcatExpr(params[0], op.GeneratorInfo))
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -124,13 +138,13 @@ func (op *operator) binaryOperator(qb *queryBuilder, str string) (*queryBuilder,
 		return nil, util.ErrXExprBadNumArgs.Gen("Binary operations require exactly two operands in expression.")
 	}
 	qb.put("(")
-	gen, err := AddExpr(&ConcatExpr{params[0], false, nil, nil})
+	gen, err := AddExpr(NewConcatExpr(params[0], op.GeneratorInfo))
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
 	qb.put(*gen)
 	qb.put(str)
-	gen, err = AddExpr(&ConcatExpr{params[1], false, nil, nil})
+	gen, err = AddExpr(NewConcatExpr(params[1], op.GeneratorInfo))
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -146,13 +160,13 @@ func (op *operator) asteriskOperator(qb *queryBuilder, str string) (*queryBuilde
 		qb.put("*")
 	case 2:
 		qb.put("(")
-		gen, err := addUnquoteExpr(&ConcatExpr{params[0], false, nil, nil})
+		gen, err := addUnquoteExpr(NewConcatExpr(params[0], op.GeneratorInfo))
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
 		qb.put(*gen)
 		qb.put("*")
-		gen, err = addUnquoteExpr(&ConcatExpr{params[0], false, nil, nil})
+		gen, err = addUnquoteExpr(NewConcatExpr(params[0], op.GeneratorInfo))
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
@@ -170,19 +184,19 @@ func (op *operator) betweenExpression(qb *queryBuilder, str string) (*queryBuild
 		return nil, util.ErrXExprBadNumArgs.Gen("BETWEEN expression requires exactly three parameters.")
 	}
 	qb.put("(")
-	gen, err := addUnquoteExpr(&ConcatExpr{params[0], false, nil, nil})
+	gen, err := addUnquoteExpr(NewConcatExpr(params[0], op.GeneratorInfo))
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
 	qb.put(*gen)
 	qb.put(str)
-	gen, err = addUnquoteExpr(&ConcatExpr{params[1], false, nil, nil})
+	gen, err = addUnquoteExpr(NewConcatExpr(params[1], op.GeneratorInfo))
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
 	qb.put(*gen)
 	qb.put(" AND ")
-	gen, err = addUnquoteExpr(&ConcatExpr{params[2], false, nil, nil})
+	gen, err = addUnquoteExpr(NewConcatExpr(params[2], op.GeneratorInfo))
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -197,14 +211,14 @@ func (op *operator) castExpression(qb *queryBuilder, str string) (*queryBuilder,
 		return nil, util.ErrXExprBadNumArgs.Gen("CAST expression requires exactly two parameters.")
 	}
 	qb.put("CAST(")
-	gen, err := addUnquoteExpr(&ConcatExpr{params[0], false, nil, nil})
+	gen, err := addUnquoteExpr(NewConcatExpr(params[0], op.GeneratorInfo))
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
 	qb.put(*gen)
 	qb.put(" AS ")
 	// TODO: Need to validate the second parameter.
-	gen, err = AddExpr(&ConcatExpr{params[1], false, nil, nil})
+	gen, err = AddExpr(NewConcatExpr(params[1], op.GeneratorInfo))
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -220,20 +234,20 @@ func (op *operator) dateExpression(qb *queryBuilder, str string) (*queryBuilder,
 	}
 	qb.put(str)
 	qb.put("(")
-	gen, err := addUnquoteExpr(&ConcatExpr{params[0], false, nil, nil})
+	gen, err := addUnquoteExpr(NewConcatExpr(params[0], op.GeneratorInfo))
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
 	qb.put(*gen)
 	qb.put(", INTERVAL ")
-	gen, err = addUnquoteExpr(&ConcatExpr{params[1], false, nil, nil})
+	gen, err = addUnquoteExpr(NewConcatExpr(params[1], op.GeneratorInfo))
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
 	qb.put(*gen)
 	qb.put(" ")
 	// TODO: Need to validate the third parameter.
-	gen, err = AddExpr(&ConcatExpr{params[2], false, nil, nil})
+	gen, err = AddExpr(NewConcatExpr(params[2], op.GeneratorInfo))
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -260,7 +274,7 @@ func (op *operator) inExpression(qb *queryBuilder, str string) (*queryBuilder, e
 		if isArray(params[1]) {
 			qb.put(str)
 			qb.put("JSON_CONTAINS(")
-			gen, err := AddExpr(&ConcatExpr{params[1], false, nil, nil})
+			gen, err := AddExpr(NewConcatExpr(params[1], op.GeneratorInfo))
 			if err != nil {
 				return nil, errors.Trace(err)
 			}
@@ -268,7 +282,7 @@ func (op *operator) inExpression(qb *queryBuilder, str string) (*queryBuilder, e
 			qb.put(",")
 			if isOctets(params[0]) {
 				qb.put("JSON_QUOTE(")
-				gen, err = AddExpr(&ConcatExpr{params[0], false, nil, nil})
+				gen, err = AddExpr(NewConcatExpr(params[0], op.GeneratorInfo))
 				if err != nil {
 					return nil, errors.Trace(err)
 				}
@@ -276,7 +290,7 @@ func (op *operator) inExpression(qb *queryBuilder, str string) (*queryBuilder, e
 				qb.put("))")
 			} else {
 				qb.put("CAST(")
-				gen, err = AddExpr(&ConcatExpr{params[0], false, nil, nil})
+				gen, err = AddExpr(NewConcatExpr(params[0], op.GeneratorInfo))
 				if err != nil {
 					return nil, errors.Trace(err)
 				}
@@ -288,7 +302,7 @@ func (op *operator) inExpression(qb *queryBuilder, str string) (*queryBuilder, e
 		fallthrough
 	default:
 		qb.put("(")
-		gen, err := addUnquoteExpr(&ConcatExpr{params[0], false, nil, nil})
+		gen, err := addUnquoteExpr(NewConcatExpr(params[0], op.GeneratorInfo))
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
@@ -298,9 +312,9 @@ func (op *operator) inExpression(qb *queryBuilder, str string) (*queryBuilder, e
 		qb.put("IN (")
 		cs := make([]interface{}, len(params))
 		for i, d := range params {
-			cs[i] = &ConcatExpr{d, false, nil, nil}
+			cs[i] = NewConcatExpr(d, op.GeneratorInfo)
 		}
-		gen, err = AddForEach(cs, addUnquoteExpr, 1, ",")
+		gen, err = AddForEach(cs[1:], addUnquoteExpr, ",")
 		qb.put("))")
 	}
 	return qb, nil
@@ -321,20 +335,20 @@ func (op *operator) likeExpression(qb *queryBuilder, str string) (*queryBuilder,
 		return nil, util.ErrXExprBadNumArgs.Gen("LIKE expression requires exactly two or three parameters.")
 	}
 	qb.put("(")
-	gen, err := addUnquoteExpr(&ConcatExpr{params[0], false, nil, nil})
+	gen, err := addUnquoteExpr(NewConcatExpr(params[0], op.GeneratorInfo))
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
 	qb.put(*gen)
 	qb.put(str)
-	gen, err = addUnquoteExpr(&ConcatExpr{params[1], false, nil, nil})
+	gen, err = addUnquoteExpr(NewConcatExpr(params[1], op.GeneratorInfo))
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
 	qb.put(*gen)
 	if len(params) == 3 {
 		qb.put(" ESCAPE ")
-		gen, err = addUnquoteExpr(&ConcatExpr{params[2], false, nil, nil})
+		gen, err = addUnquoteExpr(NewConcatExpr(params[2], op.GeneratorInfo))
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
@@ -350,13 +364,13 @@ func (op *operator) binaryExpression(qb *queryBuilder, str string) (*queryBuilde
 		return nil, util.ErrXExprBadNumArgs.Gen("BETWEEN expression requires exactly three parameters.")
 	}
 	qb.put("(")
-	gen, err := addUnquoteExpr(&ConcatExpr{params[0], false, nil, nil})
+	gen, err := addUnquoteExpr(NewConcatExpr(params[0], op.GeneratorInfo))
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
 	qb.put(*gen)
 	qb.put(str)
-	gen, err = AddExpr(&ConcatExpr{params[1], false, nil, nil})
+	gen, err = AddExpr(NewConcatExpr(params[1], op.GeneratorInfo))
 	if err != nil {
 		return nil, errors.Trace(err)
 	}

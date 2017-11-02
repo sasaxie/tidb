@@ -29,10 +29,8 @@ type builder interface {
 	build([]byte) (*string, error)
 }
 
-type baseBuilder struct{}
-
-func (b *baseBuilder) build(payload []byte) (*string, error) {
-	panic("method build of baseBuilder should not be called directly")
+type baseBuilder struct {
+	*expr.GeneratorInfo
 }
 
 func (b *baseBuilder) addAlias(p *Mysqlx_Crud.Projection) *string {
@@ -55,7 +53,7 @@ func (b *baseBuilder) addFilter(f *Mysqlx_Expr.Expr) (*string, error) {
 		return nil, nil
 	}
 	target := " WHERE "
-	gen, err := expr.AddExpr(expr.NewConcatExpr(f, false, nil, nil))
+	gen, err := expr.AddExpr(expr.NewConcatExpr(f, b.GeneratorInfo))
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -68,11 +66,7 @@ func (b *baseBuilder) addOrder(ol []*Mysqlx_Crud.Order) (*string, error) {
 		return nil, nil
 	}
 	target := " ORDER BY "
-	is := make([]interface{}, len(ol))
-	for i, d := range ol {
-		is[i] = d
-	}
-	gen, err := putList(is, b.addOrderItem)
+	gen, err := expr.AddForEach(ol, b.addOrderItem, ",")
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -89,13 +83,13 @@ func (b *baseBuilder) addLimit(l *Mysqlx_Crud.Limit, noOffset bool) (*string, er
 		return nil, util.ErrXInvalidCollection.Gen("Invalid parameter: non-zero offset value not allowed for this operation")
 	}
 	if !noOffset {
-		gen, err := expr.AddExpr(expr.NewConcatExpr(l.GetOffset(), false, nil, nil))
+		gen, err := expr.AddExpr(expr.NewConcatExpr(l.GetOffset(), b.GeneratorInfo))
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
 		target += *gen + ", "
 	}
-	gen, err := expr.AddExpr(expr.NewConcatExpr(l.GetRowCount(), false, nil, nil))
+	gen, err := expr.AddExpr(expr.NewConcatExpr(l.GetRowCount(), b.GeneratorInfo))
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -106,7 +100,7 @@ func (b *baseBuilder) addLimit(l *Mysqlx_Crud.Limit, noOffset bool) (*string, er
 func (b *baseBuilder) addOrderItem(i interface{}) (*string, error) {
 	o := i.(*Mysqlx_Crud.Order)
 	target := ""
-	gen, err := expr.AddExpr(expr.NewConcatExpr(o.GetExpr(), false, nil, nil))
+	gen, err := expr.AddExpr(expr.NewConcatExpr(o.GetExpr(), b.GeneratorInfo))
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -147,17 +141,17 @@ func (crud *xCrud) dealCrudStmtExecute(msgType Mysqlx.ClientMessages_Type, paylo
 	var sqlQuery *string
 	builder, err := crud.createCrudBuilder(msgType)
 	if err != nil {
-		log.Warnf("[XUWT] error occurs when create builder %s", msgType.String())
+		log.Warnf("error occurs when create builder %s", msgType.String())
 		return err
 	}
 
 	sqlQuery, err = builder.build(payload)
 	if err != nil {
-		log.Warnf("[XUWT] error occurs when build msg %s", msgType.String())
+		log.Warnf("error occurs when build msg %s", msgType.String())
 		return err
 	}
 
-	log.Infof("[XUWT] mysqlx reported 'CRUD query: %s'", *sqlQuery)
+	log.Infof("mysqlx reported 'CRUD query: %s'", *sqlQuery)
 	_, err = crud.ctx.Execute(*sqlQuery)
 	if err != nil {
 		return err

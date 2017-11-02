@@ -21,7 +21,7 @@ import (
 	"github.com/pingcap/tipb/go-mysqlx/Expr"
 )
 
-var derivedTableName = "`_DERIVED_TABLE_`"
+const derivedTableName = "`_DERIVED_TABLE_`"
 
 type findBuilder struct {
 	baseBuilder
@@ -32,6 +32,7 @@ func (b *findBuilder) build(payload []byte) (*string, error) {
 	if err := msg.Unmarshal(payload); err != nil {
 		return nil, util.ErrXBadMessage
 	}
+	b.GeneratorInfo = expr.NewGenerator(msg.GetArgs(), msg.GetCollection().GetSchema(), msg.GetDataModel() == Mysqlx_Crud.DataModel_TABLE)
 
 	target := ""
 	if msg.GetDataModel() != Mysqlx_Crud.DataModel_TABLE && len(msg.GetGrouping()) > 0 {
@@ -148,11 +149,7 @@ func (b *findBuilder) addTableProjection(pl []*Mysqlx_Crud.Projection) (*string,
 		target += "*"
 		return &target, nil
 	}
-	is := make([]interface{}, len(pl))
-	for i, d := range pl {
-		is[i] = d
-	}
-	gen, err := putList(is, b.addTableProjectionItem)
+	gen, err := expr.AddForEach(pl, b.addTableProjectionItem, ",")
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -163,7 +160,7 @@ func (b *findBuilder) addTableProjection(pl []*Mysqlx_Crud.Projection) (*string,
 func (b *findBuilder) addTableProjectionItem(i interface{}) (*string, error) {
 	p := i.(*Mysqlx_Crud.Projection)
 	target := ""
-	gen, err := expr.AddExpr(expr.NewConcatExpr(p.GetSource(), false, nil, nil))
+	gen, err := expr.AddExpr(expr.NewConcatExpr(p.GetSource(), b.GeneratorInfo))
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -180,7 +177,7 @@ func (b *findBuilder) addDocProjection(pl []*Mysqlx_Crud.Projection) (*string, e
 	if len(pl) == 1 &&
 		len(pl[0].GetAlias()) == 0 &&
 		pl[0].GetSource().GetType() == Mysqlx_Expr.Expr_OBJECT {
-		gen, err := expr.AddExpr(expr.NewConcatExpr(pl[0].GetSource(), false, nil, nil))
+		gen, err := expr.AddExpr(expr.NewConcatExpr(pl[0].GetSource(), b.GeneratorInfo))
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
@@ -195,13 +192,9 @@ func (b *findBuilder) addDocProjection(pl []*Mysqlx_Crud.Projection) (*string, e
 	return &target, nil
 }
 
-func (b *findBuilder) addDocObject(pl []*Mysqlx_Crud.Projection, adder addFunc) (*string, error) {
+func (b *findBuilder) addDocObject(pl []*Mysqlx_Crud.Projection, adder func(c interface{}) (*string, error)) (*string, error) {
 	target := "JSON_OBJECT("
-	is := make([]interface{}, len(pl))
-	for i, d := range pl {
-		is[i] = d
-	}
-	gen, err := putList(is, adder)
+	gen, err := expr.AddForEach(pl, adder, ",")
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -215,7 +208,7 @@ func (b *findBuilder) addDocProjectionItem(i interface{}) (*string, error) {
 		return nil, util.ErrXProjBadKeyName.Gen("Invalid projection target name")
 	}
 	target := util.QuoteString(p.GetAlias()) + ", "
-	gen, err := expr.AddExpr(expr.NewConcatExpr(p.GetSource(), false, nil, nil))
+	gen, err := expr.AddExpr(expr.NewConcatExpr(p.GetSource(), b.GeneratorInfo))
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -236,11 +229,7 @@ func (b *findBuilder) addGrouping(gl []*Mysqlx_Expr.Expr) (*string, error) {
 	target := ""
 	if len(gl) > 0 {
 		target += " GROUP BY "
-		is := make([]interface{}, len(gl))
-		for i, d := range gl {
-			is[i] = d
-		}
-		gen, err := putList(is, b.addExpr)
+		gen, err := expr.AddForEach(gl, b.addExpr, ",")
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
@@ -251,7 +240,7 @@ func (b *findBuilder) addGrouping(gl []*Mysqlx_Expr.Expr) (*string, error) {
 
 func (b *findBuilder) addExpr(i interface{}) (*string, error) {
 	e := i.(*Mysqlx_Expr.Expr)
-	gen, err := expr.AddExpr(expr.NewConcatExpr(e, false, nil, nil))
+	gen, err := expr.AddExpr(expr.NewConcatExpr(e, b.GeneratorInfo))
 	if err != nil {
 		return nil, errors.Trace(err)
 	}

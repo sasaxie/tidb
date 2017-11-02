@@ -1,3 +1,16 @@
+// Copyright 2017 PingCAP, Inc.
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//     http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
 package server
 
 import (
@@ -11,39 +24,40 @@ type updateBuilder struct {
 	baseBuilder
 }
 
-func (ub *updateBuilder) build(payload []byte) (*string, error) {
+func (b *updateBuilder) build(payload []byte) (*string, error) {
 	var msg Mysqlx_Crud.Update
 	var isRelation bool
 
 	if err := msg.Unmarshal(payload); err != nil {
 		return nil, util.ErrXBadMessage
 	}
+	b.GeneratorInfo = expr.NewGenerator(msg.GetArgs(), msg.GetCollection().GetSchema(), msg.GetDataModel() == Mysqlx_Crud.DataModel_TABLE)
 
 	if msg.GetDataModel() == Mysqlx_Crud.DataModel_TABLE {
 		isRelation = true
 	}
 
 	sqlQuery := "UPDATE "
-	sqlQuery += *ub.addCollection(msg.GetCollection())
-	generatedField, err := ub.addOpetration(msg.GetOperation(), isRelation)
+	sqlQuery += *b.addCollection(msg.GetCollection())
+	generatedField, err := b.addOpetration(msg.GetOperation(), isRelation)
 	if err != nil {
 		return nil, err
 	}
 	sqlQuery += *generatedField
 
-	generatedField, err = ub.addFilter(msg.GetCriteria())
+	generatedField, err = b.addFilter(msg.GetCriteria())
 	if err != nil {
 		return nil, err
 	}
 	sqlQuery += *generatedField
 
-	generatedField, err = ub.addOrder(msg.GetOrder())
+	generatedField, err = b.addOrder(msg.GetOrder())
 	if err != nil {
 		return nil, err
 	}
 	sqlQuery += *generatedField
 
-	generatedField, err = ub.addLimit(msg.GetLimit(), true)
+	generatedField, err = b.addLimit(msg.GetLimit(), true)
 	if err != nil {
 		return nil, err
 	}
@@ -52,7 +66,7 @@ func (ub *updateBuilder) build(payload []byte) (*string, error) {
 	return &sqlQuery, nil
 }
 
-func (ub *updateBuilder) addOpetration(operations []*Mysqlx_Crud.UpdateOperation,
+func (b *updateBuilder) addOpetration(operations []*Mysqlx_Crud.UpdateOperation,
 	tableDataMode bool) (*string, error) {
 	if len(operations) == 0 {
 		return nil, util.ErrXBadUpdateData.GenByArgs("Invalid update expression list")
@@ -63,9 +77,9 @@ func (ub *updateBuilder) addOpetration(operations []*Mysqlx_Crud.UpdateOperation
 	var generatedField *string
 	var err error
 	if tableDataMode {
-		generatedField, err = ub.addTableOperation(operations)
+		generatedField, err = b.addTableOperation(operations)
 	} else {
-		generatedField, err = ub.addDocumentOperation(operations)
+		generatedField, err = b.addDocumentOperation(operations)
 	}
 
 	if err != nil {
@@ -76,10 +90,10 @@ func (ub *updateBuilder) addOpetration(operations []*Mysqlx_Crud.UpdateOperation
 	return &target, nil
 }
 
-func (ub *updateBuilder) addTableOperation(operations []*Mysqlx_Crud.UpdateOperation) (*string, error) {
+func (b *updateBuilder) addTableOperation(operations []*Mysqlx_Crud.UpdateOperation) (*string, error) {
 	begin := 0
 	end := findIfNotEqual(operations)
-	generatedField, err := ub.addTableOperationItems(operations[0:end])
+	generatedField, err := b.addTableOperationItems(operations[0:end])
 	if err != nil {
 		return nil, err
 	}
@@ -92,7 +106,7 @@ func (ub *updateBuilder) addTableOperation(operations []*Mysqlx_Crud.UpdateOpera
 
 		begin = end
 		end = findIfNotEqual(operations[begin:])
-		generatedField, err = ub.addTableOperationItems(operations[begin:end])
+		generatedField, err = b.addTableOperationItems(operations[begin:end])
 		if err != nil {
 			return nil, err
 		}
@@ -103,7 +117,7 @@ func (ub *updateBuilder) addTableOperation(operations []*Mysqlx_Crud.UpdateOpera
 	return &target, nil
 }
 
-func (ub *updateBuilder) addTableOperationItems(operations []*Mysqlx_Crud.UpdateOperation) (*string, error) {
+func (b *updateBuilder) addTableOperationItems(operations []*Mysqlx_Crud.UpdateOperation) (*string, error) {
 	begin := operations[0]
 	if begin.GetSource().GetSchemaName() != "" ||
 		begin.GetSource().GetTableName() != "" ||
@@ -118,7 +132,7 @@ func (ub *updateBuilder) addTableOperationItems(operations []*Mysqlx_Crud.Update
 			return nil, util.ErrXBadColumnToUpdate.GenByArgs("Invalid column name to update")
 		}
 
-		gen, err := expr.AddForEach(operations, addFieldWithValue, 0, ",")
+		gen, err := expr.AddForEach(operations, b.addFieldWithValue, ",")
 		if err != nil {
 			return nil, err
 		}
@@ -130,7 +144,7 @@ func (ub *updateBuilder) addTableOperationItems(operations []*Mysqlx_Crud.Update
 		target += "=JSON_REMOVE("
 		target += util.QuoteIdentifier(begin.GetSource().GetName())
 
-		gen, err := expr.AddForEach(operations, addMember, 0, "")
+		gen, err := expr.AddForEach(operations, b.addMember, "")
 		if err != nil {
 			return nil, err
 		}
@@ -143,7 +157,7 @@ func (ub *updateBuilder) addTableOperationItems(operations []*Mysqlx_Crud.Update
 		target += "=JSON_SET("
 		target += util.QuoteIdentifier(begin.GetSource().GetName())
 
-		gen, err := expr.AddForEach(operations, addMemberWithValue, 0, "")
+		gen, err := expr.AddForEach(operations, b.addMemberWithValue, "")
 		if err != nil {
 			return nil, err
 		}
@@ -156,7 +170,7 @@ func (ub *updateBuilder) addTableOperationItems(operations []*Mysqlx_Crud.Update
 		target += "=JSON_REPLACE("
 		target += util.QuoteIdentifier(begin.GetSource().GetName())
 
-		gen, err := expr.AddForEach(operations, addMemberWithValue, 0, "")
+		gen, err := expr.AddForEach(operations, b.addMemberWithValue, "")
 		if err != nil {
 			return nil, err
 		}
@@ -169,7 +183,7 @@ func (ub *updateBuilder) addTableOperationItems(operations []*Mysqlx_Crud.Update
 		target += "=JSON_MERGE("
 		target += util.QuoteIdentifier(begin.GetSource().GetName())
 
-		gen, err := expr.AddForEach(operations, addValue, 0, "")
+		gen, err := expr.AddForEach(operations, b.addValue, "")
 		if err != nil {
 			return nil, err
 		}
@@ -182,7 +196,7 @@ func (ub *updateBuilder) addTableOperationItems(operations []*Mysqlx_Crud.Update
 		target += "=JSON_ARRAY_INSERT("
 		target += util.QuoteIdentifier(begin.GetSource().GetName())
 
-		gen, err := expr.AddForEach(operations, addMemberWithValue, 0, "")
+		gen, err := expr.AddForEach(operations, b.addMemberWithValue, "")
 		if err != nil {
 			return nil, err
 		}
@@ -195,7 +209,7 @@ func (ub *updateBuilder) addTableOperationItems(operations []*Mysqlx_Crud.Update
 		target += "=JSON_ARRAY_APPEND("
 		target += util.QuoteIdentifier(begin.GetSource().GetName())
 
-		gen, err := expr.AddForEach(operations, addMemberWithValue, 0, "")
+		gen, err := expr.AddForEach(operations, b.addMemberWithValue, "")
 		if err != nil {
 			return nil, err
 		}
@@ -208,7 +222,7 @@ func (ub *updateBuilder) addTableOperationItems(operations []*Mysqlx_Crud.Update
 	}
 }
 
-func addMember(c interface{}) (*string, error) {
+func (b *updateBuilder) addMember(c interface{}) (*string, error) {
 	operation, ok := c.(*Mysqlx_Crud.UpdateOperation)
 	if !ok {
 		return nil, util.ErrXBadColumnToUpdate.GenByArgs("Invalid column name to update")
@@ -220,7 +234,7 @@ func addMember(c interface{}) (*string, error) {
 
 	target := ","
 
-	gen, err := expr.AddExpr(expr.NewConcatExpr(operation.GetSource().GetDocumentPath(), false, nil, nil))
+	gen, err := expr.AddExpr(expr.NewConcatExpr(operation.GetSource().GetDocumentPath(), b.GeneratorInfo))
 	if err != nil {
 		return nil, err
 	}
@@ -229,14 +243,14 @@ func addMember(c interface{}) (*string, error) {
 	return &target, nil
 }
 
-func addValue(c interface{}) (*string, error) {
+func (b *updateBuilder) addValue(c interface{}) (*string, error) {
 	operation, ok := c.(*Mysqlx_Crud.UpdateOperation)
 	if !ok {
 		return nil, util.ErrXBadColumnToUpdate.GenByArgs("Invalid column name to update")
 	}
 
 	target := ","
-	gen, err := expr.AddExpr(expr.NewConcatExpr(operation.GetValue(), false, nil, nil))
+	gen, err := expr.AddExpr(expr.NewConcatExpr(operation.GetValue(), b.GeneratorInfo))
 	if err != nil {
 		return nil, err
 	}
@@ -245,14 +259,14 @@ func addValue(c interface{}) (*string, error) {
 	return &target, nil
 }
 
-func addMemberWithValue(c interface{}) (*string, error) {
-	gen, err := addMember(c)
+func (b *updateBuilder) addMemberWithValue(c interface{}) (*string, error) {
+	gen, err := b.addMember(c)
 	if err != nil {
 		return nil, err
 	}
 	target := *gen
 
-	gen, err = addValue(c)
+	gen, err = b.addValue(c)
 	if err != nil {
 		return nil, err
 	}
@@ -260,21 +274,21 @@ func addMemberWithValue(c interface{}) (*string, error) {
 	return &target, nil
 }
 
-func addFieldWithValue(c interface{}) (*string, error) {
+func (b *updateBuilder) addFieldWithValue(c interface{}) (*string, error) {
 	operation, ok := c.(*Mysqlx_Crud.UpdateOperation)
 	if !ok {
 		return nil, util.ErrXBadColumnToUpdate.GenByArgs("Invalid column name to update")
 	}
 
 	target := ""
-	gen, err := expr.AddExpr(expr.NewConcatExpr(operation.GetSource(), false, nil, nil))
+	gen, err := expr.AddExpr(expr.NewConcatExpr(operation.GetSource(), b.GeneratorInfo))
 	if err != nil {
 		return nil, err
 	}
 
 	target += *gen + "="
 
-	gen, err = expr.AddExpr(expr.NewConcatExpr(operation.GetValue(), false, nil, nil))
+	gen, err = expr.AddExpr(expr.NewConcatExpr(operation.GetValue(), b.GeneratorInfo))
 	if err != nil {
 		return nil, err
 	}
@@ -298,7 +312,7 @@ func findIfNotEqual(operation []*Mysqlx_Crud.UpdateOperation) int {
 	return len(operation) - 1
 }
 
-func (ub *updateBuilder) addDocumentOperation(operations []*Mysqlx_Crud.UpdateOperation) (*string, error) {
+func (b *updateBuilder) addDocumentOperation(operations []*Mysqlx_Crud.UpdateOperation) (*string, error) {
 	prev := Mysqlx_Crud.UpdateOperation_UpdateType(-1)
 	target := "doc="
 
@@ -325,8 +339,8 @@ func (ub *updateBuilder) addDocumentOperation(operations []*Mysqlx_Crud.UpdateOp
 		}
 		prev = op.GetOperation()
 	}
-	target += "doc"
 
+	target += "doc"
 	bi := 0
 	prev = operations[0].GetOperation()
 	for i, op := range operations {
@@ -334,7 +348,7 @@ func (ub *updateBuilder) addDocumentOperation(operations []*Mysqlx_Crud.UpdateOp
 			continue
 		}
 
-		gen, err := expr.AddForEach(operations[bi:i-1], addDocumentOperationItem, 0, "")
+		gen, err := expr.AddForEach(operations[bi:i-1], b.addDocumentOperationItem, "")
 		if err != nil {
 			return nil, err
 		}
@@ -344,7 +358,7 @@ func (ub *updateBuilder) addDocumentOperation(operations []*Mysqlx_Crud.UpdateOp
 		prev = op.GetOperation()
 	}
 
-	gen, err := expr.AddForEach(operations[bi:], addDocumentOperationItem, 0, "")
+	gen, err := expr.AddForEach(operations[bi:], b.addDocumentOperationItem, "")
 	if err != nil {
 		return nil, err
 	}
@@ -353,7 +367,7 @@ func (ub *updateBuilder) addDocumentOperation(operations []*Mysqlx_Crud.UpdateOp
 	return &target, nil
 }
 
-func addDocumentOperationItem(c interface{}) (*string, error) {
+func (b *updateBuilder) addDocumentOperationItem(c interface{}) (*string, error) {
 	operation, ok := c.(*Mysqlx_Crud.UpdateOperation)
 	if !ok {
 		return nil, util.ErrXBadColumnToUpdate.GenByArgs("Invalid column name to update")
@@ -380,7 +394,7 @@ func addDocumentOperationItem(c interface{}) (*string, error) {
 		}
 		target += ","
 
-		gen, err := expr.AddExpr(expr.NewConcatExpr(operation.GetSource().GetDocumentPath(), false, nil, nil))
+		gen, err := expr.AddExpr(expr.NewConcatExpr(operation.GetSource().GetDocumentPath(), b.GeneratorInfo))
 		if err != nil {
 			return nil, err
 		}
@@ -393,7 +407,7 @@ func addDocumentOperationItem(c interface{}) (*string, error) {
 			return nil, util.ErrXBadUpdateData.GenByArgs("Unexpected value argument for ITEM_REMOVE operation")
 		}
 	case Mysqlx_Crud.UpdateOperation_ITEM_MERGE:
-		gen, err := expr.AddExpr(expr.NewConcatExpr(operation.GetValue(), false, nil, nil))
+		gen, err := expr.AddExpr(expr.NewConcatExpr(operation.GetValue(), b.GeneratorInfo))
 		if err != nil {
 			return nil, err
 		}
@@ -401,7 +415,7 @@ func addDocumentOperationItem(c interface{}) (*string, error) {
 	default:
 		target += ","
 
-		gen, err := expr.AddExpr(expr.NewConcatExpr(operation.GetValue(), false, nil, nil))
+		gen, err := expr.AddExpr(expr.NewConcatExpr(operation.GetValue(), b.GeneratorInfo))
 		if err != nil {
 			return nil, err
 		}

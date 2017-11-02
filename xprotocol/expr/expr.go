@@ -1,8 +1,22 @@
+// Copyright 2017 PingCAP, Inc.
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//     http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
 package expr
 
 import (
 	"strconv"
 
+	log "github.com/Sirupsen/logrus"
 	"github.com/juju/errors"
 	"github.com/pingcap/tidb/expression"
 	"github.com/pingcap/tidb/xprotocol/util"
@@ -14,10 +28,25 @@ type generator interface {
 	generate(*queryBuilder) (*queryBuilder, error)
 }
 
+// GeneratorInfo contains general members of any generator.
+type GeneratorInfo struct {
+	args          []*Mysqlx_Datatypes.Scalar
+	defaultSchema string
+	isRelation    bool
+}
+
+// NewGenerator assigns protobuf payload to get a new expression generator.
+func NewGenerator(args []*Mysqlx_Datatypes.Scalar, defaultSchema string, isRelation bool) (b *GeneratorInfo) {
+	return &GeneratorInfo{
+		args:          args,
+		defaultSchema: defaultSchema,
+		isRelation:    isRelation,
+	}
+}
+
 type expr struct {
-	expr       *Mysqlx_Expr.Expr
-	args       []*Mysqlx_Datatypes.Scalar
-	isRelation bool
+	*GeneratorInfo
+	expr *Mysqlx_Expr.Expr
 }
 
 func (e *expr) generate(qb *queryBuilder) (*queryBuilder, error) {
@@ -26,21 +55,21 @@ func (e *expr) generate(qb *queryBuilder) (*queryBuilder, error) {
 	expr := e.expr
 	switch expr.GetType() {
 	case Mysqlx_Expr.Expr_IDENT:
-		g = &columnIdent{expr.GetIdentifier(), e.isRelation}
+		g = &columnIdent{e.GeneratorInfo, expr.GetIdentifier()}
 	case Mysqlx_Expr.Expr_LITERAL:
-		g = &scalar{expr.GetLiteral()}
+		g = &scalar{e.GeneratorInfo, expr.GetLiteral()}
 	case Mysqlx_Expr.Expr_VARIABLE:
-		g = &variable{expr.GetVariable()}
+		g = &variable{e.GeneratorInfo, expr.GetVariable()}
 	case Mysqlx_Expr.Expr_FUNC_CALL:
-		g = &funcCall{expr.GetFunctionCall()}
+		g = &funcCall{e.GeneratorInfo, expr.GetFunctionCall()}
 	case Mysqlx_Expr.Expr_OPERATOR:
-		g = &operator{expr.GetOperator()}
+		g = &operator{e.GeneratorInfo, expr.GetOperator()}
 	case Mysqlx_Expr.Expr_PLACEHOLDER:
-		g = &placeHolder{expr.GetPosition(), e.args}
+		g = &placeHolder{e.GeneratorInfo, expr.GetPosition()}
 	case Mysqlx_Expr.Expr_OBJECT:
-		g = &object{expr.GetObject()}
+		g = &object{e.GeneratorInfo, expr.GetObject()}
 	case Mysqlx_Expr.Expr_ARRAY:
-		g = &array{expr.GetArray()}
+		g = &array{e.GeneratorInfo, expr.GetArray()}
 	default:
 		return nil, util.ErrXBadMessage
 	}
@@ -48,8 +77,8 @@ func (e *expr) generate(qb *queryBuilder) (*queryBuilder, error) {
 }
 
 type columnIdent struct {
+	*GeneratorInfo
 	identifier *Mysqlx_Expr.ColumnIdentifier
-	isRelation bool
 }
 
 func (i *columnIdent) generate(qb *queryBuilder) (*queryBuilder, error) {
@@ -90,7 +119,7 @@ func (i *columnIdent) generate(qb *queryBuilder) (*queryBuilder, error) {
 		}
 
 		qb.put(",")
-		generatedQuery, err := AddExpr(&ConcatExpr{docPath, i.isRelation, nil, nil})
+		generatedQuery, err := AddExpr(NewConcatExpr(docPath, i.GeneratorInfo))
 		if err != nil {
 			return nil, err
 		}
@@ -101,6 +130,7 @@ func (i *columnIdent) generate(qb *queryBuilder) (*queryBuilder, error) {
 }
 
 type scalar struct {
+	*GeneratorInfo
 	scalar *Mysqlx_Datatypes.Scalar
 }
 
@@ -114,7 +144,7 @@ func (l *scalar) generate(qb *queryBuilder) (*queryBuilder, error) {
 	case Mysqlx_Datatypes.Scalar_V_NULL:
 		return qb.put("NULL"), nil
 	case Mysqlx_Datatypes.Scalar_V_OCTETS:
-		generatedQuery, err := AddExpr(&ConcatExpr{literal.GetVOctets(), false, nil, nil})
+		generatedQuery, err := AddExpr(NewConcatExpr(literal.GetVOctets(), l.GeneratorInfo))
 		if err != nil {
 			return nil, err
 		}
@@ -140,6 +170,7 @@ func (l *scalar) generate(qb *queryBuilder) (*queryBuilder, error) {
 }
 
 type variable struct {
+	*GeneratorInfo
 	variable string
 }
 
@@ -148,9 +179,9 @@ func (v *variable) generate(qb *queryBuilder) (*queryBuilder, error) {
 }
 
 type ident struct {
-	ident         *Mysqlx_Expr.Identifier
-	isFunction    bool
-	defaultSchema string
+	*GeneratorInfo
+	ident      *Mysqlx_Expr.Identifier
+	isFunction bool
 }
 
 func (i *ident) generate(qb *queryBuilder) (*queryBuilder, error) {
@@ -170,13 +201,14 @@ func (i *ident) generate(qb *queryBuilder) (*queryBuilder, error) {
 }
 
 type funcCall struct {
+	*GeneratorInfo
 	functionCall *Mysqlx_Expr.FunctionCall
 }
 
 func (fc *funcCall) generate(qb *queryBuilder) (*queryBuilder, error) {
 	functionCall := fc.functionCall
 
-	generatedQuery, err := AddExpr(&ConcatExpr{functionCall.GetName(), true, nil, nil})
+	generatedQuery, err := AddExpr(NewConcatExpr(functionCall.GetName(), fc.GeneratorInfo))
 	if err != nil {
 		return nil, err
 	}
@@ -184,7 +216,7 @@ func (fc *funcCall) generate(qb *queryBuilder) (*queryBuilder, error) {
 	qb.put("(")
 
 	for _, expr := range functionCall.GetParam() {
-		generatedQuery, err := AddExpr(&ConcatExpr{expr, true, nil, nil})
+		generatedQuery, err := AddExpr(NewConcatExpr(expr, fc.GeneratorInfo))
 		if err != nil {
 			return nil, err
 		}
@@ -201,24 +233,25 @@ func (fc *funcCall) generate(qb *queryBuilder) (*queryBuilder, error) {
 }
 
 type placeHolder struct {
+	*GeneratorInfo
 	position uint32
-	msg      []*Mysqlx_Datatypes.Scalar
 }
 
 func (ph *placeHolder) generate(qb *queryBuilder) (*queryBuilder, error) {
 	position := ph.position
-	msg := ph.msg
-	if position < uint32(len(msg)) {
-		generatedQuery, err := AddExpr(&ConcatExpr{msg[position], true, nil, nil})
+	if position < uint32(len(ph.args)) {
+		generatedQuery, err := AddExpr(NewConcatExpr(ph.args[position], ph.GeneratorInfo))
 		if err != nil {
 			return nil, err
 		}
-		return qb.put(generatedQuery), nil
+		return qb.put(*generatedQuery), nil
 	}
+	log.Infof("[YUSP] pos: %d, size: %d", position, len(ph.args))
 	return nil, util.ErrXExprBadValue.GenByArgs("Invalid value of placeholder")
 }
 
 type objectField struct {
+	*GeneratorInfo
 	objectField *Mysqlx_Expr.Object_ObjectField
 }
 
@@ -233,7 +266,7 @@ func (ob *objectField) generate(qb *queryBuilder) (*queryBuilder, error) {
 	}
 	qb.QuoteString(objectField.GetKey()).put(",")
 
-	generatedQuery, err := AddExpr(&ConcatExpr{objectField.GetValue(), false, nil, nil})
+	generatedQuery, err := AddExpr(NewConcatExpr(objectField.GetValue(), ob.GeneratorInfo))
 	if err != nil {
 		return nil, err
 	}
@@ -243,6 +276,7 @@ func (ob *objectField) generate(qb *queryBuilder) (*queryBuilder, error) {
 }
 
 type object struct {
+	*GeneratorInfo
 	object *Mysqlx_Expr.Object
 }
 
@@ -251,9 +285,9 @@ func (ob *object) generate(qb *queryBuilder) (*queryBuilder, error) {
 	fields := ob.object.GetFld()
 	cs := make([]interface{}, len(fields))
 	for i, d := range fields {
-		cs[i] = &ConcatExpr{d, false, nil, nil}
+		cs[i] = NewConcatExpr(d, ob.GeneratorInfo)
 	}
-	gen, err := AddForEach(cs, AddExpr, 0, ",")
+	gen, err := AddForEach(cs, AddExpr, ",")
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -263,6 +297,7 @@ func (ob *object) generate(qb *queryBuilder) (*queryBuilder, error) {
 }
 
 type array struct {
+	*GeneratorInfo
 	array *Mysqlx_Expr.Array
 }
 
@@ -271,9 +306,9 @@ func (a *array) generate(qb *queryBuilder) (*queryBuilder, error) {
 	values := a.array.GetValue()
 	cs := make([]interface{}, len(values))
 	for i, d := range values {
-		cs[i] = &ConcatExpr{d, false, nil, nil}
+		cs[i] = NewConcatExpr(d, a.GeneratorInfo)
 	}
-	gen, err := AddForEach(cs, AddExpr, 0, ",")
+	gen, err := AddForEach(cs, AddExpr, ",")
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -283,6 +318,7 @@ func (a *array) generate(qb *queryBuilder) (*queryBuilder, error) {
 }
 
 type docPathArray struct {
+	*GeneratorInfo
 	docPath []*Mysqlx_Expr.DocumentPathItem
 }
 
@@ -331,6 +367,7 @@ const (
 )
 
 type scalarOctets struct {
+	*GeneratorInfo
 	scalarOctets *Mysqlx_Datatypes.Scalar_Octets
 }
 
@@ -354,6 +391,7 @@ func (so *scalarOctets) generate(qb *queryBuilder) (*queryBuilder, error) {
 }
 
 type any struct {
+	*GeneratorInfo
 	any *Mysqlx_Datatypes.Any
 }
 
@@ -361,7 +399,7 @@ func (a *any) generate(qb *queryBuilder) (*queryBuilder, error) {
 	any := a.any
 	switch any.GetType() {
 	case Mysqlx_Datatypes.Any_SCALAR:
-		generatedQuery, err := AddExpr(&ConcatExpr{any.GetScalar(), false, nil, nil})
+		generatedQuery, err := AddExpr(NewConcatExpr(any.GetScalar(), a.GeneratorInfo))
 		if err != nil {
 			return nil, err
 		}

@@ -14,6 +14,7 @@
 package server
 
 import (
+	"github.com/pingcap/tidb/xprotocol/expr"
 	"github.com/pingcap/tidb/xprotocol/util"
 	"github.com/pingcap/tipb/go-mysqlx/Crud"
 )
@@ -27,6 +28,7 @@ func (b *deleteBuilder) build(payload []byte) (*string, error) {
 	if err := msg.Unmarshal(payload); err != nil {
 		return nil, util.ErrXBadMessage
 	}
+	b.GeneratorInfo = expr.NewGenerator(msg.GetArgs(), msg.GetCollection().GetSchema(), msg.GetDataModel() == Mysqlx_Crud.DataModel_TABLE)
 
 	sqlQuery := "DELETE FROM "
 	sqlQuery += *b.addCollection(msg.GetCollection())
