@@ -118,6 +118,7 @@ func (crud *xCrud) createCrudBuilder(msgType Mysqlx.ClientMessages_Type) (builde
 	case Mysqlx.ClientMessages_CRUD_INSERT:
 		return &insertBuilder{}, nil
 	case Mysqlx.ClientMessages_CRUD_UPDATE:
+		return &updateBuilder{}, nil
 	case Mysqlx.ClientMessages_CRUD_DELETE:
 		return &deleteBuilder{}, nil
 	case Mysqlx.ClientMessages_CRUD_CREATE_VIEW:

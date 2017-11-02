@@ -39,34 +39,40 @@ func (b *updateBuilder) build(payload []byte) (*string, error) {
 
 	sqlQuery := "UPDATE "
 	sqlQuery += *b.addCollection(msg.GetCollection())
-	generatedField, err := b.addOpetration(msg.GetOperation(), isRelation)
+	generatedField, err := b.addOperation(msg.GetOperation(), isRelation)
 	if err != nil {
 		return nil, err
 	}
 	sqlQuery += *generatedField
 
-	generatedField, err = b.addFilter(msg.GetCriteria())
-	if err != nil {
-		return nil, err
+	if c := msg.GetCriteria(); c != nil {
+		generatedField, err = b.addFilter(c)
+		if err != nil {
+			return nil, err
+		}
+		sqlQuery += *generatedField
 	}
-	sqlQuery += *generatedField
 
-	generatedField, err = b.addOrder(msg.GetOrder())
-	if err != nil {
-		return nil, err
+	if ol := msg.GetOrder(); ol != nil {
+		generatedField, err = b.addOrder(ol)
+		if err != nil {
+			return nil, err
+		}
+		sqlQuery += *generatedField
 	}
-	sqlQuery += *generatedField
 
-	generatedField, err = b.addLimit(msg.GetLimit(), true)
-	if err != nil {
-		return nil, err
+	if l := msg.GetLimit(); l != nil {
+		generatedField, err = b.addLimit(l, true)
+		if err != nil {
+			return nil, err
+		}
+		sqlQuery += *generatedField
 	}
-	sqlQuery += *generatedField
 
 	return &sqlQuery, nil
 }
 
-func (b *updateBuilder) addOpetration(operations []*Mysqlx_Crud.UpdateOperation,
+func (b *updateBuilder) addOperation(operations []*Mysqlx_Crud.UpdateOperation,
 	tableDataMode bool) (*string, error) {
 	if len(operations) == 0 {
 		return nil, util.ErrXBadUpdateData.GenByArgs("Invalid update expression list")
