@@ -84,10 +84,13 @@ func replaceQuery(sql, param string) (string, error) {
 }
 
 func shouldIgnore(idx int, sql, begin, end string) bool {
+	if idx == 0 || idx == len(sql)-1 {
+		return false
+	}
 	if i := strings.LastIndex(sql[:idx], begin); i == -1 {
 		return false
 	}
-	if i := strings.Index(sql[idx:], end); i == -1 {
+	if i := strings.Index(sql[idx+1:], end); i == -1 {
 		return false
 	}
 	return true
