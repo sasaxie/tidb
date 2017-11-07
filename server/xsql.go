@@ -56,7 +56,15 @@ func (xsql *xSQL) dealSQLStmtExecute(payload []byte) error {
 		}
 	case "sql", "":
 		sql := string(msg.GetStmt())
-		if err := xsql.executeStmt(sql); err != nil {
+		args := msg.GetArgs()
+		var err error
+		if len(args) != 0 {
+			sql, err = util.FormatQuery(sql, args)
+			if err != nil {
+				return errors.Trace(err)
+			}
+		}
+		if err = xsql.executeStmt(sql); err != nil {
 			return errors.Trace(err)
 		}
 	default:
