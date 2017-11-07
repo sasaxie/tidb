@@ -157,9 +157,14 @@ func (crud *xCrud) dealCrudStmtExecute(msgType Mysqlx.ClientMessages_Type, paylo
 	}
 
 	log.Infof("mysqlx reported 'CRUD query: %s'", *sqlQuery)
-	_, err = crud.ctx.Execute(*sqlQuery)
+	rs, err := crud.ctx.Execute(*sqlQuery)
 	if err != nil {
 		return err
+	}
+	for _, r := range rs {
+		if err := WriteResultSet(r, crud.pkt, crud.alloc); err != nil {
+			return err
+		}
 	}
 	return SendExecOk(crud.pkt, crud.ctx.LastInsertID())
 }
