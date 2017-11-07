@@ -66,7 +66,11 @@ func (b *baseBuilder) addOrder(ol []*Mysqlx_Crud.Order) (*string, error) {
 		return nil, nil
 	}
 	target := " ORDER BY "
-	gen, err := expr.AddForEach(ol, b.addOrderItem, ",")
+	cs := make([]interface{}, len(ol))
+	for i, d := range ol {
+		cs[i] = d
+	}
+	gen, err := expr.AddForEach(cs, b.addOrderItem, ",")
 	if err != nil {
 		return nil, errors.Trace(err)
 	}

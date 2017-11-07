@@ -138,7 +138,11 @@ func (b *updateBuilder) addTableOperationItems(operations []*Mysqlx_Crud.UpdateO
 			return nil, util.ErrXBadColumnToUpdate.GenByArgs("Invalid column name to update")
 		}
 
-		gen, err := expr.AddForEach(operations, b.addFieldWithValue, ",")
+		cs := make([]interface{}, len(operations))
+		for i, d := range operations {
+			cs[i] = d
+		}
+		gen, err := expr.AddForEach(cs, b.addFieldWithValue, ",")
 		if err != nil {
 			return nil, err
 		}
@@ -150,7 +154,11 @@ func (b *updateBuilder) addTableOperationItems(operations []*Mysqlx_Crud.UpdateO
 		target += "=JSON_REMOVE("
 		target += util.QuoteIdentifier(begin.GetSource().GetName())
 
-		gen, err := expr.AddForEach(operations, b.addMember, "")
+		cs := make([]interface{}, len(operations))
+		for i, d := range operations {
+			cs[i] = d
+		}
+		gen, err := expr.AddForEach(cs, b.addMember, "")
 		if err != nil {
 			return nil, err
 		}
@@ -163,7 +171,11 @@ func (b *updateBuilder) addTableOperationItems(operations []*Mysqlx_Crud.UpdateO
 		target += "=JSON_SET("
 		target += util.QuoteIdentifier(begin.GetSource().GetName())
 
-		gen, err := expr.AddForEach(operations, b.addMemberWithValue, "")
+		cs := make([]interface{}, len(operations))
+		for i, d := range operations {
+			cs[i] = d
+		}
+		gen, err := expr.AddForEach(cs, b.addMemberWithValue, "")
 		if err != nil {
 			return nil, err
 		}
@@ -176,7 +188,11 @@ func (b *updateBuilder) addTableOperationItems(operations []*Mysqlx_Crud.UpdateO
 		target += "=JSON_REPLACE("
 		target += util.QuoteIdentifier(begin.GetSource().GetName())
 
-		gen, err := expr.AddForEach(operations, b.addMemberWithValue, "")
+		cs := make([]interface{}, len(operations))
+		for i, d := range operations {
+			cs[i] = d
+		}
+		gen, err := expr.AddForEach(cs, b.addMemberWithValue, "")
 		if err != nil {
 			return nil, err
 		}
@@ -189,7 +205,11 @@ func (b *updateBuilder) addTableOperationItems(operations []*Mysqlx_Crud.UpdateO
 		target += "=JSON_MERGE("
 		target += util.QuoteIdentifier(begin.GetSource().GetName())
 
-		gen, err := expr.AddForEach(operations, b.addValue, "")
+		cs := make([]interface{}, len(operations))
+		for i, d := range operations {
+			cs[i] = d
+		}
+		gen, err := expr.AddForEach(cs, b.addValue, "")
 		if err != nil {
 			return nil, err
 		}
@@ -202,7 +222,11 @@ func (b *updateBuilder) addTableOperationItems(operations []*Mysqlx_Crud.UpdateO
 		target += "=JSON_ARRAY_INSERT("
 		target += util.QuoteIdentifier(begin.GetSource().GetName())
 
-		gen, err := expr.AddForEach(operations, b.addMemberWithValue, "")
+		cs := make([]interface{}, len(operations))
+		for i, d := range operations {
+			cs[i] = d
+		}
+		gen, err := expr.AddForEach(cs, b.addMemberWithValue, "")
 		if err != nil {
 			return nil, err
 		}
@@ -215,7 +239,11 @@ func (b *updateBuilder) addTableOperationItems(operations []*Mysqlx_Crud.UpdateO
 		target += "=JSON_ARRAY_APPEND("
 		target += util.QuoteIdentifier(begin.GetSource().GetName())
 
-		gen, err := expr.AddForEach(operations, b.addMemberWithValue, "")
+		cs := make([]interface{}, len(operations))
+		for i, d := range operations {
+			cs[i] = d
+		}
+		gen, err := expr.AddForEach(cs, b.addMemberWithValue, "")
 		if err != nil {
 			return nil, err
 		}
@@ -322,12 +350,13 @@ func (b *updateBuilder) addDocumentOperation(operations []*Mysqlx_Crud.UpdateOpe
 	prev := Mysqlx_Crud.UpdateOperation_UpdateType(-1)
 	target := "doc="
 
-	for _, op := range operations {
-		if prev == op.GetOperation() {
+	for i := len(operations) - 1; i >= 0; i-- {
+		op := operations[i].GetOperation()
+		if prev == op {
 			continue
 		}
 
-		switch op.GetOperation() {
+		switch op {
 		case Mysqlx_Crud.UpdateOperation_ITEM_REMOVE:
 			target += "JSON_REMOVE("
 		case Mysqlx_Crud.UpdateOperation_ITEM_SET:
@@ -343,7 +372,7 @@ func (b *updateBuilder) addDocumentOperation(operations []*Mysqlx_Crud.UpdateOpe
 		default:
 			return nil, util.ErrXBadTypeOfUpdate.GenByArgs("Invalid type of update operations for document")
 		}
-		prev = op.GetOperation()
+		prev = op
 	}
 
 	target += "doc"
@@ -354,7 +383,11 @@ func (b *updateBuilder) addDocumentOperation(operations []*Mysqlx_Crud.UpdateOpe
 			continue
 		}
 
-		gen, err := expr.AddForEach(operations[bi:i-1], b.addDocumentOperationItem, "")
+		cs := make([]interface{}, len(operations[bi:i-1]))
+		for j, d := range operations[bi : i-1] {
+			cs[j] = d
+		}
+		gen, err := expr.AddForEach(cs, b.addDocumentOperationItem, "")
 		if err != nil {
 			return nil, err
 		}
@@ -364,7 +397,11 @@ func (b *updateBuilder) addDocumentOperation(operations []*Mysqlx_Crud.UpdateOpe
 		prev = op.GetOperation()
 	}
 
-	gen, err := expr.AddForEach(operations[bi:], b.addDocumentOperationItem, "")
+	cs := make([]interface{}, len(operations[bi:]))
+	for j, d := range operations[bi:] {
+		cs[j] = d
+	}
+	gen, err := expr.AddForEach(cs, b.addDocumentOperationItem, "")
 	if err != nil {
 		return nil, err
 	}

@@ -149,7 +149,11 @@ func (b *findBuilder) addTableProjection(pl []*Mysqlx_Crud.Projection) (*string,
 		target += "*"
 		return &target, nil
 	}
-	gen, err := expr.AddForEach(pl, b.addTableProjectionItem, ",")
+	cs := make([]interface{}, len(pl))
+	for i, d := range pl {
+		cs[i] = d
+	}
+	gen, err := expr.AddForEach(cs, b.addTableProjectionItem, ",")
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -194,7 +198,11 @@ func (b *findBuilder) addDocProjection(pl []*Mysqlx_Crud.Projection) (*string, e
 
 func (b *findBuilder) addDocObject(pl []*Mysqlx_Crud.Projection, adder func(c interface{}) (*string, error)) (*string, error) {
 	target := "JSON_OBJECT("
-	gen, err := expr.AddForEach(pl, adder, ",")
+	cs := make([]interface{}, len(pl))
+	for i, d := range pl {
+		cs[i] = d
+	}
+	gen, err := expr.AddForEach(cs, adder, ",")
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -229,7 +237,11 @@ func (b *findBuilder) addGrouping(gl []*Mysqlx_Expr.Expr) (*string, error) {
 	target := ""
 	if len(gl) > 0 {
 		target += " GROUP BY "
-		gen, err := expr.AddForEach(gl, b.addExpr, ",")
+		cs := make([]interface{}, len(gl))
+		for i, d := range gl {
+			cs[i] = d
+		}
+		gen, err := expr.AddForEach(cs, b.addExpr, ",")
 		if err != nil {
 			return nil, errors.Trace(err)
 		}

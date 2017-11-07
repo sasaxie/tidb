@@ -142,11 +142,18 @@ func AddExpr(e interface{}) (*string, error) {
 }
 
 func addUnquoteExpr(c interface{}) (*string, error) {
+	str := ""
 	gen, err := AddExpr(c)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	str := "JSON_UNQUOTE(" + *gen + ")"
+	concat := c.(*ConcatExpr)
+	e := concat.expr.(*Mysqlx_Expr.Expr)
+	if e.GetType() == Mysqlx_Expr.Expr_IDENT && len(e.Identifier.GetDocumentPath()) > 0 {
+		str = "JSON_UNQUOTE(" + *gen + ")"
+	} else {
+		str = *gen
+	}
 	return &str, nil
 }
 

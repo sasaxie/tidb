@@ -16,7 +16,6 @@ package expr
 import (
 	"strconv"
 
-	log "github.com/Sirupsen/logrus"
 	"github.com/juju/errors"
 	"github.com/pingcap/tidb/expression"
 	"github.com/pingcap/tidb/xprotocol/util"
@@ -215,19 +214,12 @@ func (fc *funcCall) generate(qb *queryBuilder) (*queryBuilder, error) {
 	qb.put(*generatedQuery)
 	qb.put("(")
 
-	for _, expr := range functionCall.GetParam() {
-		generatedQuery, err := AddExpr(NewConcatExpr(expr, fc.GeneratorInfo))
-		if err != nil {
-			return nil, err
-		}
-
-		if expr.GetType() == Mysqlx_Expr.Expr_IDENT && len(expr.Identifier.GetDocumentPath()) > 0 {
-			qb.put("JSON_UNQUOTE(").put(*generatedQuery).put(")")
-		} else {
-			qb.put(*generatedQuery).put(",")
-		}
+	params := functionCall.GetParam()
+	cs := make([]interface{}, len(params))
+	for i, d := range params {
+		cs[i] = NewConcatExpr(d, fc.GeneratorInfo)
 	}
-
+	generatedQuery, err = AddForEach(cs, addUnquoteExpr, ",")
 	qb.put(")")
 	return qb, nil
 }
@@ -246,7 +238,6 @@ func (ph *placeHolder) generate(qb *queryBuilder) (*queryBuilder, error) {
 		}
 		return qb.put(*generatedQuery), nil
 	}
-	log.Infof("[YUSP] pos: %d, size: %d", position, len(ph.args))
 	return nil, util.ErrXExprBadValue.GenByArgs("Invalid value of placeholder")
 }
 
