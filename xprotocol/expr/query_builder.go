@@ -73,16 +73,41 @@ func (qb *queryBuilder) put(i interface{}) *queryBuilder {
 		qb.str += v
 	case []byte:
 		if qb.inQuoted {
-
+			v = escapeString(v)
 		} else if qb.inIdentifier {
-
-		} else {
-
+			v = escapeIdentifier(v)
 		}
+		str := string(v)
+		qb.str += str
 	default:
 		log.Panicf("can not put this value")
 	}
 	return qb
+}
+
+func escapeString(b []byte) []byte {
+	for i := range b {
+		b[i] = escapeChar(b[i])
+	}
+	return b
+}
+
+func escapeIdentifier(b []byte) []byte {
+	return b
+}
+
+func escapeChar(c byte) byte {
+	switch c {
+	case 0:
+		return '0'
+	case '\n':
+		return 'n'
+	case '\r':
+		return 'r'
+	case '\032':
+		return 'Z'
+	}
+	return c
 }
 
 func (qb *queryBuilder) QuoteString(str string) *queryBuilder {
