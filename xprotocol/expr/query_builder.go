@@ -16,6 +16,7 @@ package expr
 import (
 	"strconv"
 
+	log "github.com/Sirupsen/logrus"
 	"github.com/juju/errors"
 	"github.com/pingcap/tidb/xprotocol/util"
 	"github.com/pingcap/tipb/go-mysqlx/Datatypes"
@@ -79,7 +80,7 @@ func (qb *queryBuilder) put(i interface{}) *queryBuilder {
 
 		}
 	default:
-		panic("can not put this value")
+		log.Panicf("can not put this value")
 	}
 	return qb
 }
@@ -109,11 +110,7 @@ func NewConcatExpr(expr interface{}, i *GeneratorInfo) *ConcatExpr {
 // AddExpr executes add operation.
 func AddExpr(e interface{}) (*string, error) {
 	var g generator
-
-	c, ok := e.(*ConcatExpr)
-	if !ok {
-		return nil, util.ErrXBadMessage
-	}
+	c := e.(*ConcatExpr)
 
 	switch v := c.expr.(type) {
 	case *Mysqlx_Expr.Expr:
@@ -130,8 +127,12 @@ func AddExpr(e interface{}) (*string, error) {
 		g = &scalar{c.GeneratorInfo, v}
 	case *Mysqlx_Datatypes.Scalar_Octets:
 		g = &scalarOctets{c.GeneratorInfo, v}
+	case int64, uint64, uint32, float64, float32, string, []byte:
+		baseQB := &queryBuilder{"", false, false}
+		baseQB.put(v)
+		return &(baseQB.str), nil
 	default:
-		return nil, util.ErrXBadMessage
+		log.Panicf("not supported type")
 	}
 
 	qb, err := g.generate(&queryBuilder{"", false, false})

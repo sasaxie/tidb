@@ -17,6 +17,7 @@ import (
 	"strconv"
 	"strings"
 
+	log "github.com/Sirupsen/logrus"
 	"github.com/juju/errors"
 	"github.com/pingcap/tipb/go-mysqlx/Datatypes"
 )
@@ -45,6 +46,8 @@ func FormatQuery(sql string, args []*Mysqlx_Datatypes.Any) (string, error) {
 			param = strconv.FormatBool(s.GetVBool())
 		case Mysqlx_Datatypes.Scalar_V_STRING:
 			param = QuoteString(string(s.GetVString().GetValue()))
+		default:
+			log.Panicf("not supported type %s", s.GetType().String())
 		}
 		sql, err = replaceQuery(sql, param)
 		if err != nil {

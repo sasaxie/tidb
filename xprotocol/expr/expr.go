@@ -16,6 +16,7 @@ package expr
 import (
 	"strconv"
 
+	log "github.com/Sirupsen/logrus"
 	"github.com/juju/errors"
 	"github.com/pingcap/tidb/expression"
 	"github.com/pingcap/tidb/xprotocol/util"
@@ -70,7 +71,7 @@ func (e *expr) generate(qb *queryBuilder) (*queryBuilder, error) {
 	case Mysqlx_Expr.Expr_ARRAY:
 		g = &array{e.GeneratorInfo, expr.GetArray()}
 	default:
-		return nil, util.ErrXBadMessage
+		log.Panicf("not supported type %s", expr.GetType().String())
 	}
 	return g.generate(qb)
 }
