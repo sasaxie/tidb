@@ -138,7 +138,7 @@ func (xcc *mysqlXClientConn) Close() error {
 
 func (xcc *mysqlXClientConn) handleMessage(tp Mysqlx.ClientMessages_Type, msg []byte) error {
 	switch tp {
-	case Mysqlx.ClientMessages_CON_CLOSE, Mysqlx.ClientMessages_SESS_RESET:
+	case Mysqlx.ClientMessages_CON_CLOSE, Mysqlx.ClientMessages_SESS_CLOSE, Mysqlx.ClientMessages_SESS_RESET:
 		return xcc.xauth.handleReadyMessage(tp, msg)
 	case Mysqlx.ClientMessages_CON_CAPABILITIES_GET:
 		return xcc.getCapabilities()

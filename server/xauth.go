@@ -42,26 +42,28 @@ type xAuth struct {
 }
 
 func (xa *xAuth) handleMessage(msgType Mysqlx.ClientMessages_Type, payload []byte) error {
-	if xa.mState == authenticating {
+	switch xa.mState {
+	case authenticating:
 		return xa.handleAuthMessage(msgType, payload)
-	} else if xa.mState == ready {
+	case ready:
 		return xa.handleReadyMessage(msgType, payload)
+	case closing:
+		return nil
 	}
-
-	// This is not the same as it is in mysql-x-plugin, which returns nothing, and you should never get here.
-	return util.ErrorMessage(mysql.ErrUnknown, "unknown ssession state.")
+	// You should never get here.
+	return util.ErrorMessage(mysql.ErrUnknown, "unknown session state.")
 }
 
 func (xa *xAuth) handleReadyMessage(msgType Mysqlx.ClientMessages_Type, payload []byte) error {
 	switch msgType {
 	case Mysqlx.ClientMessages_SESS_CLOSE:
-		if err := notice.SendNoticeOK(xa.xcc.pkt, "bye!"); err != nil {
+		if err := util.SendOK(xa.xcc.pkt, "bye!"); err != nil {
 			return errors.Trace(err)
 		}
 		xa.onClose(false)
 		return nil
 	case Mysqlx.ClientMessages_CON_CLOSE:
-		if err := notice.SendNoticeOK(xa.xcc.pkt, "bye!"); err != nil {
+		if err := util.SendOK(xa.xcc.pkt, "bye!"); err != nil {
 			return errors.Trace(err)
 		}
 		xa.onClose(false)

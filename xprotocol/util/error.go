@@ -14,8 +14,10 @@
 package util
 
 import (
+	"github.com/juju/errors"
 	"github.com/pingcap/tidb/mysql"
 	"github.com/pingcap/tidb/terror"
+	"github.com/pingcap/tidb/xprotocol/xpacketio"
 	"github.com/pingcap/tipb/go-mysqlx"
 )
 
@@ -131,4 +133,21 @@ func XErrorMessage(errcode uint16, msg string, state string) *Mysqlx.Error {
 		Msg:      &msg,
 	}
 	return &errMsg
+}
+
+// SendOK is used to send server message OK.
+func SendOK(pkt *xpacketio.XPacketIO, content string) error {
+	msg := Mysqlx.Ok{
+		Msg: &content,
+	}
+
+	data, err := msg.Marshal()
+	if err != nil {
+		return err
+	}
+
+	if err := pkt.WritePacket(Mysqlx.ServerMessages_OK, data); err != nil {
+		return errors.Trace(err)
+	}
+	return nil
 }
