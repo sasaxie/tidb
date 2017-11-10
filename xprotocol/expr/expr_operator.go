@@ -315,6 +315,7 @@ func (op *operator) inExpression(qb *queryBuilder, str string) (*queryBuilder, e
 			cs[i] = NewConcatExpr(d, op.GeneratorInfo)
 		}
 		gen, err = AddForEach(cs[1:], addUnquoteExpr, ",")
+		qb.put(*gen)
 		qb.put("))")
 	}
 	return qb, nil
