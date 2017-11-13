@@ -104,13 +104,13 @@ func (xs *xSession) handleSessionMessage(msgType Mysqlx.ClientMessages_Type, pay
 		if err := util.SendOK(xs.xcc.pkt, "bye!"); err != nil {
 			return true, errors.Trace(err)
 		}
-		xs.onClose(false)
+		xs.onClose(true)
 		return true, nil
 	case Mysqlx.ClientMessages_CON_CLOSE:
 		if err := util.SendOK(xs.xcc.pkt, "bye!"); err != nil {
 			return true, errors.Trace(err)
 		}
-		xs.onClose(false)
+		xs.onClose(true)
 		return true, nil
 	case Mysqlx.ClientMessages_SESS_RESET:
 		xs.state = closing
@@ -220,6 +220,9 @@ func (xs *xSession) onClose(updateOldState bool) {
 			xs.stateBeforeClose = xs.state
 		}
 		xs.state = closing
+		if err := xs.xcc.Close(); err != nil {
+			log.Errorf("error occurs when closing X Protocol connection")
+		}
 	}
 }
 
