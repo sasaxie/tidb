@@ -14,6 +14,7 @@
 package server
 
 import (
+	log "github.com/Sirupsen/logrus"
 	"github.com/juju/errors"
 	"github.com/pingcap/tidb/mysql"
 	"github.com/pingcap/tidb/terror"
@@ -64,6 +65,7 @@ func (xsql *xSQL) dealSQLStmtExecute(payload []byte) error {
 				return errors.Trace(err)
 			}
 		}
+		log.Infof("ready to execute X Protocol SQL: %s", sql)
 		if err = xsql.executeStmt(sql); err != nil {
 			return errors.Trace(err)
 		}

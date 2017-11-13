@@ -99,7 +99,7 @@ func (b *updateBuilder) addOperation(operations []*Mysqlx_Crud.UpdateOperation,
 func (b *updateBuilder) addTableOperation(operations []*Mysqlx_Crud.UpdateOperation) (*string, error) {
 	begin := 0
 	end := findIfNotEqual(operations)
-	generatedField, err := b.addTableOperationItems(operations[0:end])
+	generatedField, err := b.addTableOperationItems(operations[0 : end+1])
 	if err != nil {
 		return nil, err
 	}
@@ -112,7 +112,7 @@ func (b *updateBuilder) addTableOperation(operations []*Mysqlx_Crud.UpdateOperat
 
 		begin = end
 		end = findIfNotEqual(operations[begin:])
-		generatedField, err = b.addTableOperationItems(operations[begin:end])
+		generatedField, err = b.addTableOperationItems(operations[begin : end+1])
 		if err != nil {
 			return nil, err
 		}

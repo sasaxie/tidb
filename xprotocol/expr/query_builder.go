@@ -152,6 +152,8 @@ func AddExpr(e interface{}) (*string, error) {
 		g = &scalar{c.GeneratorInfo, v}
 	case *Mysqlx_Datatypes.Scalar_Octets:
 		g = &scalarOctets{c.GeneratorInfo, v}
+	case *Mysqlx_Expr.ColumnIdentifier:
+		g = &columnIdent{c.GeneratorInfo, v}
 	case int64, uint64, uint32, float64, float32, string, []byte:
 		baseQB := &queryBuilder{"", false, false}
 		baseQB.put(v)

@@ -63,9 +63,11 @@ func (b *insertBuilder) addProjection(p []*Mysqlx_Crud.Column, tableDataMode boo
 	if tableDataMode {
 		if len(p) != 0 {
 			target += " (" + *p[0].Name
-			for _, col := range p {
-				target += ","
-				target += *col.Name
+			if len(p) > 1 {
+				for _, col := range p[1:] {
+					target += ","
+					target += *col.Name
+				}
 			}
 			target += ")"
 		}
