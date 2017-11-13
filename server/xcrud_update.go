@@ -383,8 +383,8 @@ func (b *updateBuilder) addDocumentOperation(operations []*Mysqlx_Crud.UpdateOpe
 			continue
 		}
 
-		cs := make([]interface{}, len(operations[bi:i-1]))
-		for j, d := range operations[bi : i-1] {
+		cs := make([]interface{}, len(operations[bi:i]))
+		for j, d := range operations[bi:i] {
 			cs[j] = d
 		}
 		gen, err := expr.AddForEach(cs, b.addDocumentOperationItem, "")
